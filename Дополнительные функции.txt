@@ -1,0 +1,144 @@
+//Вспомогательный функции
+function findCellByValue(sheet, value) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    for (var j = 0; j < data[i].length; j++) {
+      if (data[i][j] === value) {
+        return sheet.getRange(i + 1, j + 1);
+      }
+    }
+  }
+  return null;
+}
+
+// Функция для преобразования строки, чтобы только первая буква каждого слова была заглавной
+function capitalizeFirstLetter(text) {
+  return text.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+}
+
+function findCellsByValue(sheet, value) {
+  var data = sheet.getDataRange().getValues();
+  var cells = [];
+  for (var i = 0; i < data.length; i++) {
+    for (var j = 0; j < data[i].length; j++) {
+      if (data[i][j] === value) {
+        cells.push(sheet.getRange(i + 1, j + 1));
+      }
+    }
+  }
+  return cells;
+}
+
+
+
+
+// function findCellByValue(sheet, value) {
+//   var data = sheet.getDataRange().getValues();
+//   for (var i = 0; i < data.length; i++) {
+//     for (var j = 0; j < data[i].length; j++) {
+//       if (data[i][j] === value) {
+//         return sheet.getRange(i + 1, j + 1);
+//       }
+//     }
+//   }
+//   return null;
+// }
+
+function findCellByValueInColumn(sheet, value, column, startRow = 1) {
+  var columnValues = sheet.getRange(column + startRow + ':' + column).getValues();
+  for (var i = 0; i < columnValues.length; i++) {
+    if (columnValues[i][0] === value) {
+      return sheet.getRange(startRow + i, column.charCodeAt(0) - 64);
+    }
+  }
+  return null;
+}
+
+
+// Вспомогательная функция для преобразования месяца в заглавные буквы
+//function convertMonthToUpperCase(month) {
+//  Logger.log('convertMonthToUpperCase: Received month = ' + month);
+//  return month.toUpperCase();
+//}
+
+function convertMonthToUpperCase(month, cellAddress) {
+  Logger.log('convertMonthToUpperCase: Received month = ' + month + ' from cell ' + cellAddress);
+  
+  if (!month) {
+    throw new Error('Месяц не указан или неверен в ячейке ' + cellAddress);
+  }
+
+  return month.toUpperCase();
+}
+
+// Вспомогательная функция для получения значения ячеек
+function getValue(sheet, cell) {
+  return sheet.getRange(cell).getValue();
+}
+
+// Вспомогательная функция для установки значения ячеек
+function setValue(sheet, cell, value) {
+  sheet.getRange(cell).setValue(value);
+}
+
+// Вспомогательная функция для установки диапазона значений
+function setRangeValues(sheet, startCell, values) {
+  var startRange = sheet.getRange(startCell);
+  var numRows = values.length;
+  var numCols = values[0].length;
+  var targetRange = sheet.getRange(startRange.getRow(), startRange.getColumn(), numRows, numCols);
+  targetRange.setValues(values);
+}
+
+// Вспомогательная функция для получения числового значения месяца
+function getMonthNumber(monthName) {
+  Logger.log('getMonthNumber: Received monthName = ' + monthName);
+
+  if (!monthName) {
+    throw new Error('Месяц не указан или неверен');
+  }
+
+  var monthNames = ['ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ', 'ИЮЛЬ', 'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ', 'ДЕКАБРЬ'];
+  var monthIndex = monthNames.indexOf(monthName.toUpperCase());
+  if (monthIndex === -1) {
+    throw new Error('Неверное название месяца: ' + monthName);
+  }
+  Logger.log('getMonthNumber: Found monthIndex = ' + monthIndex);
+  return (monthIndex + 1).toString().padStart(2, '0'); // Возвращаем числовое значение месяца в формате "02"
+}
+
+// Вспомогательная функция для получения предыдущего месяца
+function getPreviousMonth(month, year) {
+  var monthNames = ['ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ', 'ИЮЛЬ', 'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ', 'ДЕКАБРЬ'];
+  var monthIndex = monthNames.indexOf(month.toUpperCase());
+  if (monthIndex == -1) throw new Error('Неверное название месяца: ' + month);
+
+  var prevMonthIndex = (monthIndex - 1 + 12) % 12;
+  var prevYear = monthIndex === 0 ? year - 1 : year;
+
+  return {
+    month: monthNames[prevMonthIndex],
+    year: prevYear
+  };
+}
+
+
+
+// Дполонительная Функция для получения значений недель для функции compareWeeklyAverages
+function getWeeklyValues(sheet) {
+  Logger.log('🔍 Получаем значения недель на листе: ' + sheet.getName());
+  
+  var weeklyValues = [];
+  for (var i = 1; i <= 4; i++) {
+    var weekCell = findCellByValueInColumn(sheet, i + ' неделя', 'D');
+    if (weekCell) {
+      var weekValue = sheet.getRange(weekCell.getRow(), weekCell.getColumn() + 1).getValue(); // Значение в столбце E
+      Logger.log('✅ ' + i + ' неделя: найдено значение ' + weekValue);
+      weeklyValues.push(weekValue);
+    } else {
+      Logger.log('❌ ' + i + ' неделя не найдена на листе ' + sheet.getName());
+      weeklyValues.push(null);
+    }
+  }
+  return weeklyValues;
+}

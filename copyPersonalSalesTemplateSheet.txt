@@ -1,0 +1,60 @@
+// Функция для копирования листа Личные продажи и переименования его в следующий месяц
+function copyPersonalSalesTemplateSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var templateSheetName = 'Шаблон ЛП';
+
+  // Проверяем наличие листа-шаблона
+  var templateSheet = ss.getSheetByName(templateSheetName);
+  if (!templateSheet) {
+    Logger.log('Template sheet not found: ' + templateSheetName);
+    return;
+  }
+
+  // Получаем текущий месяц и год из названий листов
+  var currentMonthIndex = -1;
+  var currentYear = -1;
+  var maxSheetName = '';
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var match = sheetName.match(/^Личные продажи (\d{2})\.(\d{4})$/);
+    if (match) {
+      var month = parseInt(match[1]);
+      var year = parseInt(match[2]);
+      if (year > currentYear || (year == currentYear && month > currentMonthIndex)) {
+        currentMonthIndex = month - 1;
+        currentYear = year;
+        maxSheetName = sheetName;
+      }
+    }
+  }
+
+  // Если текущий месяц и год не найдены, используем текущую дату
+  if (currentMonthIndex == -1 || currentYear == -1) {
+    var now = new Date();
+    currentMonthIndex = now.getMonth();
+    currentYear = now.getFullYear();
+  }
+
+  // Определяем следующий месяц и год
+  var nextMonthIndex = (currentMonthIndex + 1) % 12;
+  var nextYear = currentYear + (nextMonthIndex == 0 ? 1 : 0);
+  var nextMonthName = ('0' + (nextMonthIndex + 1)).slice(-2);
+  var nextSheetName = `Личные продажи ${nextMonthName}.${nextYear}`;
+
+  // Проверяем, существует ли лист с таким названием
+  if (ss.getSheetByName(nextSheetName)) {
+    Logger.log('Sheet already exists: ' + nextSheetName);
+    return;
+  }
+
+  // Копируем лист-шаблон и переименовываем его
+  var newSheet = templateSheet.copyTo(ss);
+  newSheet.setName(nextSheetName);
+
+  // Перемещаем новый лист в конец
+  ss.setActiveSheet(newSheet);
+  ss.moveActiveSheet(sheets.length + 1);
+
+  Logger.log('Sheet copied and renamed to: ' + nextSheetName);
+}

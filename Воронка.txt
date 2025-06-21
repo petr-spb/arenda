@@ -1,0 +1,741 @@
+// function updateDataFromYandexFunnel() {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var calculationSheet = ss.getSheetByName('Расчеты'); // Лист с выбранным месяцем и годом
+//   var yandexSheet = ss.getSheetByName('воронка (яндекс)'); // Лист "воронка (яндекс)"
+
+//   if (!yandexSheet) {
+//     Logger.log('Лист "воронка (яндекс)" не найден.');
+//     return;
+//   }
+
+//   // Получение месяца и года из ячеек H2 и F2
+//   var selectedMonth = getValue(calculationSheet, 'H2');
+//   var selectedYear = getValue(calculationSheet, 'F2');
+
+//   // Преобразование месяца в заглавные буквы
+//   var monthUpperCase = convertMonthToUpperCase(selectedMonth);
+
+//   // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+//   var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+//   Logger.log('Формируем название листа: ' + sheetName);
+
+//   var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+//   if (!targetSheet) {
+//     Logger.log('Лист "' + sheetName + '" не найден.');
+//     return;
+//   }
+
+//   var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+//   Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+//   // Вычисление прошлого месяца и года
+//   var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+//   var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+//   var lastYear = lastMonthDate.getFullYear();
+//   var formattedLastMonthYear = (lastMonthName + ' ' + lastYear).toUpperCase().trim();
+//   Logger.log('Прошлый месяц и год: ' + formattedLastMonthYear);
+
+//   var range = yandexSheet.getDataRange();
+//   var values = range.getValues();
+//   var foundMonth = false;
+//   var foundMonthDirty = false;
+//   var foundMonthClean = false;
+
+//   // Найти строку с выбранным месяцем и годом
+//   for (var i = 0; i < values.length; i++) {
+//     // Запись данных за текущий месяц
+//     if (values[i][0].toString().toUpperCase() === formattedMonthYear) {
+//       // Проверить, что над этой строкой находится текст "ГРЯЗНЫЕ" ЛИДЫ
+//       if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+//         foundMonth = true;
+//         Logger.log('Найден выбранный месяц и год на строке: ' + (i + 1));
+
+//         // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+//         setValue(targetSheet, 'F159', values[i + 2][1]); // Бюджет ПЛАН
+//         setValue(targetSheet, 'G159', values[i + 2][2]); // Бюджет ФАКТ
+//         setValue(targetSheet, 'F160', values[i + 6][1]); // Лиды ПЛАН
+//         setValue(targetSheet, 'G160', values[i + 6][2]); // Лиды ФАКТ
+//         // setValue(targetSheet, 'F162', values[i + 8][1]); // CV2(конверсия в бронь) ПЛАН
+//         // setValue(targetSheet, 'G162', values[i + 8][2]); // CV2(конверсия в бронь) ФАКТ
+//         setValue(targetSheet, 'F163', values[i + 12][1]); // Средний чек ПЛАН
+//         setValue(targetSheet, 'G163', values[i + 12][2]); // Средний чек ФАКТ
+//         setValue(targetSheet, 'F164', values[i + 10][1]); // Цена ночи ПЛАН
+//         setValue(targetSheet, 'G164', values[i + 10][2]); // Цена ночи ФАКТ
+//         setValue(targetSheet, 'F165', values[i + 13][1]); // Выручка ПЛАН
+//         setValue(targetSheet, 'G165', values[i + 13][2]); // Выручка ФАКТ
+//       }
+
+//       // Проверить, что над этой строкой находится текст "ЧИСТЫЕ" ЛИДЫ
+//       if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+//         foundMonth = true;
+//         Logger.log('Найден выбранный месяц и год на строке: ' + (i + 1));
+
+//         // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+//         setValue(targetSheet, 'F161', values[i + 6][1]); // Чистые лиды ПЛАН
+//         setValue(targetSheet, 'G161', values[i + 6][2]); // Чистые лиды ФАКТ
+//         setValue(targetSheet, 'F162', values[i + 8][1]); // CV2(конверсия в бронь) ПЛАН
+//         setValue(targetSheet, 'G162', values[i + 8][2]); // CV2(конверсия в бронь) ФАКТ
+//       }
+//     }
+
+//     // Поиск данных за прошлый месяц в разделе "ГРЯЗНЫЕ" ЛИДЫ
+//     if (values[i][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+//       if (values[i + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+//         foundMonthDirty = true;
+//         Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (i + 2));
+
+//         // Запись данных для грязных лидов за прошлый месяц на лист "Расчеты"
+//         var budgetFromAJ = values[i + 3][35];
+//         Logger.log('📌 Запись бюджета в "Расчеты" -> A40 из AJ: ' + budgetFromAJ);
+//         setValue(calculationSheet, 'A40', budgetFromAJ); // Записываем в ячейку A40 на листе "Расчеты"
+
+//         // Запись данных для Лиды ГРЯЗНЫЕ за прошлый месяц на лист "Расчеты"
+//         var dirtyLeadsFromAJ = values[i + 7][35];
+//         Logger.log('📌 Запись лидов ГРЯЗНЫЕ в "Расчеты" -> A64 из AJ: ' + dirtyLeadsFromAJ);
+//         setValue(calculationSheet, 'A64', dirtyLeadsFromAJ); // Записываем в ячейку A64 на листе "Расчеты"
+//       }
+//     }
+
+//     // Поиск данных за прошлый месяц в разделе "ЧИСТЫЕ" ЛИДЫ
+//     if (values[i][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+//       if (values[i + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+//         foundMonthClean = true;
+//         Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (i + 7));
+
+//         // Запись данных для чистых лидов за прошлый месяц на лист "Расчеты"
+//         var cleanLeadsFromAJ = values[i + 7][35];
+//         Logger.log('📌 Запись лидов ЧИСТЫЕ в "Расчеты" -> A71 из AJ: ' + cleanLeadsFromAJ);
+//         setValue(calculationSheet, 'A71', cleanLeadsFromAJ); // Записываем в ячейку A71 на листе "Расчеты"
+//       }
+//     }
+//   }
+
+//   if (!foundMonth) {
+//     Logger.log('Выбранный месяц и год не найдены на листе "воронка (яндекс)" или над ними нет строки "ГРЯЗНЫЕ" ЛИДЫ.');
+//   }
+
+//   if (!foundMonthDirty) {
+//     Logger.log('Прошлый месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ.');
+//   }
+
+//   if (!foundMonthClean) {
+//     Logger.log('Прошлый месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ.');
+//   }
+// }
+
+
+
+function updateDataFromYandexFunnel() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист с выбранным месяцем и годом
+  var yandexSheet = ss.getSheetByName('воронка (яндекс)'); // Лист "воронка (яндекс)"
+
+  if (!yandexSheet) {
+    Logger.log('Лист "воронка (яндекс)" не найден.');
+    return;
+  }
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth);
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+  if (!targetSheet) {
+    Logger.log('Лист "' + sheetName + '" не найден.');
+    return;
+  }
+
+  var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+  Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+  // Вычисление прошлого месяца и года
+  var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+  var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+  var lastYear = lastMonthDate.getFullYear();
+  var formattedLastMonthYear = (lastMonthName + ' ' + lastYear).toUpperCase().trim();
+  Logger.log('Прошлый месяц и год: ' + formattedLastMonthYear);
+
+  var range = yandexSheet.getDataRange();
+  var values = range.getValues();
+  var foundMonth = false;
+  var foundMonthDirty = false;
+  var foundMonthClean = false;
+
+  // Найти строку с выбранным месяцем и годом
+  for (var i = 0; i < values.length; i++) {
+    // Запись данных за текущий месяц
+    if (values[i][0].toString().toUpperCase() === formattedMonthYear) {
+      // Проверить, что над этой строкой находится текст "ГРЯЗНЫЕ" ЛИДЫ
+      if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+        foundMonth = true;
+        Logger.log('Найден выбранный месяц и год на строке: ' + (i + 1));
+
+        // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+        setValue(targetSheet, 'F159', values[i + 2][1]); // Бюджет ПЛАН
+        setValue(targetSheet, 'G159', values[i + 2][2]); // Бюджет ФАКТ
+        setValue(targetSheet, 'F160', values[i + 6][1]); // Лиды ПЛАН
+        setValue(targetSheet, 'G160', values[i + 6][2]); // Лиды ФАКТ
+        setValue(targetSheet, 'F163', values[i + 12][1]); // Средний чек ПЛАН
+        setValue(targetSheet, 'G163', values[i + 12][2]); // Средний чек ФАКТ
+        setValue(targetSheet, 'F164', values[i + 10][1]); // Цена ночи ПЛАН
+        setValue(targetSheet, 'G164', values[i + 10][2]); // Цена ночи ФАКТ
+        setValue(targetSheet, 'F165', values[i + 13][1]); // Выручка ПЛАН
+        setValue(targetSheet, 'G165', values[i + 13][2]); // Выручка ФАКТ
+
+        // Запись бюджета за текущий месяц в C40 на листе "Расчеты"
+        var budgetFromAJCurrentYan = values[i + 2][35]; // Бюджет ФАКТ из столбца AJ
+        Logger.log('📌 Запись бюджета за текущий месяц в "Расчеты" -> C40 из AJ: ' + budgetFromAJCurrentYan);
+        setValue(calculationSheet, 'budgetYanCurr', budgetFromAJCurrentYan || 0); // Записываем в C40, 0 если undefined
+
+        // Запись лидов за текущий месяц в C64 на листе "Расчеты"
+        var dirtyLeadsFromAJCurrent = values[i + 6][35]; // Лиды ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ за текущий месяц в "Расчеты" -> C64 из AJ: ' + dirtyLeadsFromAJCurrent);
+        setValue(calculationSheet, 'C64', dirtyLeadsFromAJCurrent || 0); // Записываем в C64, 0 если undefined
+      }
+
+      // Проверить, что над этой строкой находится текст "ЧИСТЫЕ" ЛИДЫ
+      if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+        foundMonth = true;
+        Logger.log('Найден выбранный месяц и год на строке: ' + (i + 1));
+
+        // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+        setValue(targetSheet, 'F161', values[i + 6][1]); // Чистые лиды ПЛАН
+        setValue(targetSheet, 'G161', values[i + 6][2]); // Чистые лиды ФАКТ
+        setValue(targetSheet, 'F162', values[i + 8][1]); // CV2(конверсия в бронь) ПЛАН
+        setValue(targetSheet, 'G162', values[i + 8][2]); // CV2(конверсия в бронь) ФАКТ
+
+        // Запись чистых лидов за текущий месяц в C65 на листе "Расчеты"
+        var cleanLeadsFromAJCurrent = values[i + 6][35]; // Чистые лиды ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ЧИСТЫЕ за текущий месяц в "Расчеты" -> C65 из AJ: ' + cleanLeadsFromAJCurrent);
+        setValue(calculationSheet, 'C65', cleanLeadsFromAJCurrent || 0); // Записываем в C65, 0 если undefined
+      }
+    }
+
+    // Поиск данных за прошлый месяц в разделе "ГРЯЗНЫЕ" ЛИДЫ
+    if (values[i][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+        foundMonthDirty = true;
+        Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (i + 2));
+
+        // Запись данных для грязных лидов за прошлый месяц на лист "Расчеты"
+        var budgetFromAJYan = values[i + 3][35];
+        Logger.log('📌 Запись бюджета за прошлый месяц в "Расчеты" -> A40 из AJ: ' + budgetFromAJYan);
+        setValue(calculationSheet, 'budgetYanLast', budgetFromAJYan); // Записываем в ячейку A40 на листе "Расчеты"
+
+        // Запись данных для Лиды ГРЯЗНЫЕ за прошлый месяц на лист "Расчеты"
+        var dirtyLeadsFromAJ = values[i + 7][35];
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ за прошлый месяц в "Расчеты" -> C108 из AJ: ' + dirtyLeadsFromAJ); //A64
+        setValue(calculationSheet, 'AllLeadYanLast', dirtyLeadsFromAJ); // Записываем в ячейку C108 на листе "Расчеты"
+      }
+    }
+
+    // Поиск данных за прошлый месяц в разделе "ЧИСТЫЕ" ЛИДЫ
+    if (values[i][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+        foundMonthClean = true;
+        Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (i + 7));
+
+        // Запись данных для чистых лидов количество за прошлый месяц на лист "Расчеты"
+        var cleanLeadsFromAJ = values[i + 7][35];
+        Logger.log('📌 Запись лидов ЧИСТЫЕ за прошлый месяц в "Расчеты" -> A71 из AJ: ' + cleanLeadsFromAJ);
+        setValue(calculationSheet, 'cleanLeadYanLast', cleanLeadsFromAJ); // Записываем в ячейку A71 на листе "Расчеты"
+      }
+    }
+  }
+
+  if (!foundMonth) {
+    Logger.log('Выбранный месяц и год не найдены на листе "воронка (яндекс)" или над ними нет строки "ГРЯЗНЫЕ" ЛИДЫ.');
+  }
+
+  if (!foundMonthDirty) {
+    Logger.log('Прошлый месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ.');
+  }
+
+  if (!foundMonthClean) {
+    Logger.log('Прошлый месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ.');
+  }
+}
+
+
+
+
+// function updateDataFromCianFunnel() {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+//   var cianSheet = ss.getSheetByName('воронка (циан)'); // Лист "воронка (циан)"
+
+//   if (!cianSheet) {
+//     Logger.log('Лист "воронка (циан)" не найден.');
+//     return;
+//   }
+
+//   // Получение месяца и года из ячеек H2 и F2
+//   var selectedMonth = calculationSheet.getRange('H2').getValue();
+//   var selectedYear = calculationSheet.getRange('F2').getValue();
+
+//   // Преобразование месяца в заглавные буквы
+//   var monthUpperCase = selectedMonth.toUpperCase();
+
+//   // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+//   var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+//   Logger.log('Формируем название листа: ' + sheetName);
+
+//   var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+//   if (!targetSheet) {
+//     Logger.log('Лист "' + sheetName + '" не найден.');
+//     return;
+//   }
+
+//   var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+//   Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+//   // Вычисление прошлого месяца и года
+//   var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+//   var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+//   var lastYear = lastMonthDate.getFullYear();
+//   var formattedLastMonthYear = (lastMonthName + ' ' + lastYear).toUpperCase().trim();
+//   Logger.log('Прошлый месяц и год: ' + formattedLastMonthYear);
+
+//   var range = cianSheet.getDataRange();
+//   var values = range.getValues();
+//   var foundMonthDirty = false;
+//   var foundMonthClean = false;
+
+//   // 🔹 Обход всех строк в "воронка (циан)"
+//   for (var i = 0; i < values.length - 1; i++) {
+//     // 🔹 Поиск "ГРЯЗНЫХ" ЛИДОВ
+//     if (values[i][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+//       if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+//         foundMonthDirty = true;
+//         Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (i + 2));
+
+//         // Запись данных для грязных лидов
+//         updateCianData(targetSheet, cianSheet, i + 2, "Бюджет", 167);
+//         updateCianData(targetSheet, cianSheet, i + 2, "Лиды ГРЯЗНЫЕ", 168);
+//         // updateCianData(targetSheet, cianSheet, i + 2, "CV2(конверсия в бронь)", 170);
+//         updateCianData(targetSheet, cianSheet, i + 2, "Цена ночи", 171);
+//         updateCianData(targetSheet, cianSheet, i + 2, "Выручка", 172);
+//       }
+//     }
+
+//     // 🔹 Поиск "ЧИСТЫХ" ЛИДОВ
+//     if (values[i][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+//       if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+//         foundMonthClean = true;
+//         Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (i + 2));
+
+//         // 🔹 Поиск строки "Лиды ЧИСТЫЕ" после месяца
+//         for (var j = i + 2; j < values.length; j++) {
+//           if (values[j][0].toString().toUpperCase() === 'ЛИДЫ ЧИСТЫЕ') {
+//             Logger.log('Найдены "Лиды ЧИСТЫЕ" на строке ' + (j + 1));
+
+//             // Запись данных (указаны временные строки, замени на нужные)
+//             updateCianData(targetSheet, cianSheet, j, "Лиды ЧИСТЫЕ", 166);
+//             updateCianData(targetSheet, cianSheet, i + 2, "CV2(конверсия в бронь)", 170);
+//             break;
+//           }
+//         }
+//       }
+//     }
+//   }
+
+//   // Поиск данных за прошлый месяц в разделе "ГРЯЗНЫЕ" ЛИДЫ
+//   for (var k = 0; k < values.length; k++) {
+//     if (values[k][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+//       if (values[k + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+//         foundMonthDirty = true;
+//         Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (k + 2));
+
+//         // Запись данных для грязных лидов за прошлый месяц на лист "Расчеты"
+//         var budgetFromAJ = values[k + 3][35];
+//         Logger.log('📌 Запись бюджета в "Расчеты" -> A41 из AJ: ' + budgetFromAJ);
+//         setValue(calculationSheet, 'A41', budgetFromAJ); // Записываем в ячейку A41 на листе "Расчеты"
+
+//         // Запись данных для Лиды ГРЯЗНЫЕ за прошлый месяц на лист "Расчеты"
+//         var dirtyLeadsFromAJ = values[k + 7][35];
+//         Logger.log('📌 Запись лидов ГРЯЗНЫЕ в "Расчеты" -> A64 из AJ: ' + dirtyLeadsFromAJ);
+//         setValue(calculationSheet, 'A65', dirtyLeadsFromAJ); // Записываем в ячейку A64 на листе "Расчеты"
+//       }
+//     }
+//   }
+
+//   // Поиск данных за прошлый месяц в разделе "ЧИСТЫЕ" ЛИДЫ
+//   for (var l = 0; l < values.length; l++) {
+//     if (values[l][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+//       if (values[l + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+//         foundMonthClean = true;
+//         Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (l + 2));
+
+//         // Запись данных для чистых лидов за прошлый месяц на лист "Расчеты"
+//         var cleanLeadsFromAJ = values[l + 7][35];
+//         Logger.log('📌 Запись лидов ЧИСТЫЕ в "Расчеты" -> A72 из AJ: ' + cleanLeadsFromAJ);
+//         setValue(calculationSheet, 'A72', cleanLeadsFromAJ); // Записываем в ячейку A72 на листе "Расчеты"
+//       }
+//     }
+//   }
+
+//   if (!foundMonthDirty) {
+//     Logger.log('Выбранный месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ.');
+//   }
+
+//   if (!foundMonthClean) {
+//     Logger.log('Выбранный месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ.');
+//   }
+// }
+
+function updateDataFromCianFunnel() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+  var cianSheet = ss.getSheetByName('воронка (циан)'); // Лист "воронка (циан)"
+
+  if (!cianSheet) {
+    Logger.log('Лист "воронка (циан)" не найден.');
+    return;
+  }
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = calculationSheet.getRange('H2').getValue();
+  var selectedYear = calculationSheet.getRange('F2').getValue();
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = selectedMonth.toUpperCase();
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+  if (!targetSheet) {
+    Logger.log('Лист "' + sheetName + '" не найден.');
+    return;
+  }
+
+  var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+  Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+  // Вычисление прошлого месяца и года
+  var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+  var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+  var lastYear = lastMonthDate.getFullYear();
+  var formattedLastMonthYear = (lastMonthName + ' ' + lastYear).toUpperCase().trim();
+  Logger.log('Прошлый месяц и год: ' + formattedLastMonthYear);
+
+  var range = cianSheet.getDataRange();
+  var values = range.getValues();
+  var foundMonthDirty = false;
+  var foundMonthClean = false;
+
+  // 🔹 Обход всех строк в "воронка (циан)"
+  for (var i = 0; i < values.length - 1; i++) {
+    // 🔹 Поиск "ГРЯЗНЫХ" ЛИДОВ
+    if (values[i][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+        foundMonthDirty = true;
+        Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (i + 2));
+
+        // Запись данных для грязных лидов в лист текущего месяца
+        updateCianData(targetSheet, cianSheet, i + 2, "Бюджет", 167);
+        updateCianData(targetSheet, cianSheet, i + 2, "Лиды ГРЯЗНЫЕ", 168);
+        updateCianData(targetSheet, cianSheet, i + 2, "Цена ночи", 171);
+        updateCianData(targetSheet, cianSheet, i + 2, "Выручка", 172);
+
+        // Запись бюджета за текущий месяц в C41 на листе "Расчеты"
+        var budgetFromAJCurrentCian = values[i + 3][35]; // Бюджет ФАКТ из столбца AJ
+        Logger.log('📌 Запись бюджета за текущий месяц в "Расчеты" -> C41 из AJ: ' + budgetFromAJCurrentCian);
+        setValue(calculationSheet, 'budgetCianCurr', budgetFromAJCurrentCian || 0); // Записываем в C41, 0 если undefined
+
+        // Запись лидов за текущий месяц в C65 на листе "Расчеты"
+        var dirtyLeadsFromAJCurrent = values[i + 6][35]; // Лиды ГРЯЗНЫЕ ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ за текущий месяц в "Расчеты" -> C65 из AJ: ' + dirtyLeadsFromAJCurrent);
+        setValue(calculationSheet, 'C65', dirtyLeadsFromAJCurrent || 0); // Записываем в C65, 0 если undefined
+      }
+    }
+
+    // 🔹 Поиск "ЧИСТЫХ" ЛИДОВ
+    if (values[i][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+        foundMonthClean = true;
+        Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (i + 2));
+
+        // 🔹 Поиск строки "Лиды ЧИСТЫЕ" после месяца
+        for (var j = i + 2; j < values.length; j++) {
+          if (values[j][0].toString().toUpperCase() === 'ЛИДЫ ЧИСТЫЕ') {
+            Logger.log('Найдены "Лиды ЧИСТЫЕ" на строке ' + (j + 1));
+
+            // Запись данных в лист текущего месяца
+            updateCianData(targetSheet, cianSheet, j, "Лиды ЧИСТЫЕ", 166);
+            updateCianData(targetSheet, cianSheet, i + 2, "CV2(конверсия в бронь)", 170);
+
+            // Запись чистых лидов за текущий месяц в C72 на листе "Расчеты"
+            var cleanLeadsFromAJCurrent = values[j][35]; // Чистые лиды ФАКТ из столбца AJ
+            Logger.log('📌 Запись лидов ЧИСТЫЕ за текущий месяц в "Расчеты" -> C72 из AJ: ' + cleanLeadsFromAJCurrent);
+            setValue(calculationSheet, 'C72', cleanLeadsFromAJCurrent || 0); // Записываем в C72, 0 если undefined
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Поиск данных за прошлый месяц в разделе "ГРЯЗНЫЕ" ЛИДЫ
+  for (var k = 0; k < values.length; k++) {
+    if (values[k][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+      if (values[k + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+        foundMonthDirty = true;
+        Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (k + 2));
+
+        // Запись данных для грязных лидов за прошлый месяц на лист "Расчеты"
+        var budgetFromAJCian = values[k + 3][35];
+        Logger.log('📌 Запись бюджета за прошлый месяц в "Расчеты" -> A41 из AJ: ' + budgetFromAJCian);
+        setValue(calculationSheet, 'budgetCianLast', budgetFromAJCian); // Записываем в ячейку A41 на листе "Расчеты"
+
+        // Запись данных для Лиды ГРЯЗНЫЕ за прошлый месяц на лист "Расчеты"
+        var dirtyLeadsFromAJ = values[k + 7][35];
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ за прошлый месяц в "Расчеты" -> C109 из AJ: ' + dirtyLeadsFromAJ);
+        setValue(calculationSheet, 'AllLeadCianLast', dirtyLeadsFromAJ); // Записываем в ячейку A65 на листе "Расчеты"
+      }
+    }
+  }
+
+  // Поиск данных за прошлый месяц в разделе "ЧИСТЫЕ" ЛИДЫ
+  for (var l = 0; l < values.length; l++) {
+    if (values[l][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+      if (values[l + 1][0].toString().toUpperCase() === formattedLastMonthYear) {
+        foundMonthClean = true;
+        Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (l + 2));
+
+        // Запись данных для чистых лидов за прошлый месяц на лист "Расчеты"
+        var cleanLeadsFromAJ = values[l + 7][35];
+        Logger.log('📌 Запись лидов ЧИСТЫЕ за прошлый месяц в "Расчеты" -> C113 из AJ: ' + cleanLeadsFromAJ);
+        setValue(calculationSheet, 'cleanLeadCianLast', cleanLeadsFromAJ); // Записываем в ячейку C113 на листе "Расчеты"
+      }
+    }
+  }
+
+  if (!foundMonthDirty) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ.');
+  }
+
+  if (!foundMonthClean) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ.');
+  }
+}
+function updateCianData(targetSheet, cianSheet, startRow, label, targetRow) {
+  var values = cianSheet.getDataRange().getValues();
+
+  for (var j = startRow; j < values.length; j++) {
+    if (values[j][0].toString().toUpperCase() === label.toUpperCase()) {
+      Logger.log('--- НАЙДЕНО ---');
+      Logger.log('Найдено "' + label + '" на строке: ' + (j + 1));
+
+      // Обновление данных на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+      var planValue = values[j][1]; // ПЛАН
+      var factValue = values[j][2]; // ФАКТ
+
+      Logger.log('--- ИСТОЧНИК ДАННЫХ ---');
+      Logger.log('Источник данных для "' + label + '":');
+      Logger.log('План: ' + planValue + ', Факт: ' + factValue);
+      Logger.log('--- ЯЧЕЙКИ ДЛЯ ЗАПИСИ ---');
+      Logger.log('Запись данных в ячейки:');
+      Logger.log('Лист "' + targetSheet.getName() + '", ячейка F' + targetRow + ': План');
+      Logger.log('Лист "' + targetSheet.getName() + '", ячейка G' + targetRow + ': Факт');
+
+      targetSheet.getRange('F' + targetRow).setValue(planValue);
+      targetSheet.getRange('G' + targetRow).setValue(factValue);
+
+      Logger.log('--- ОБНОВЛЕНИЕ ЗАВЕРШЕНО ---');
+      Logger.log('Данные для "' + label + '" обновлены на строке ' + targetRow + ' на листе "' + targetSheet.getName() + '".');
+      Logger.log('План: ' + planValue + ', Факт: ' + factValue);
+      return;
+    }
+  }
+}
+
+
+// Функция для записи количество чистых и гряхных лидов с Воронки Яндекс Недвижимость
+function fetchDataFromYandexFunnel() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+  var yandexSheet = ss.getSheetByName('воронка (яндекс)'); // Лист "воронка (яндекс)"
+
+  if (!yandexSheet) {
+    Logger.log('Лист "воронка (яндекс)" не найден.');
+    return;
+  }
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, 'H2');
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+  if (!targetSheet) {
+    Logger.log('Лист "' + sheetName + '" не найден.');
+    return;
+  }
+
+  var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+  Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+  var range = yandexSheet.getDataRange();
+  var values = range.getValues();
+  var foundMonthDirty = false;
+  var foundMonthClean = false;
+
+  // Найти строки с выбранным месяцем и годом
+  for (var i = 0; i < values.length; i++) {
+    if (values[i][0].toString().toUpperCase() === formattedMonthYear) {
+      // Проверить, что над этой строкой находится текст "ГРЯЗНЫЕ" ЛИДЫ
+      if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+        foundMonthDirty = true;
+        Logger.log('Найден выбранный месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке: ' + (i + 1));
+
+        // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+        setValue(targetSheet, 'F159', values[i + 2][1]); // Бюджет ПЛАН
+        setValue(targetSheet, 'G159', values[i + 2][2]); // Бюджет ФАКТ
+        setValue(targetSheet, 'F160', values[i + 6][1]); // Лиды ПЛАН
+        setValue(targetSheet, 'G160', values[i + 6][2]); // Лиды ФАКТ
+        setValue(targetSheet, 'F163', values[i + 12][1]); // Средний чек ПЛАН
+        setValue(targetSheet, 'G163', values[i + 12][2]); // Средний чек ФАКТ
+        setValue(targetSheet, 'F164', values[i + 10][1]); // Цена ночи ПЛАН
+        setValue(targetSheet, 'G164', values[i + 10][2]); // Цена ночи ФАКТ
+        setValue(targetSheet, 'F165', values[i + 13][1]); // Выручка ПЛАН
+        setValue(targetSheet, 'G165', values[i + 13][2]); // Выручка ФАКТ
+
+        // Запись данных для "ГРЯЗНЫЕ" лиды (факт) за текущий месяц в C64
+        var dirtyLeadsFromAJ = values[i + 6][35]; // Лиды ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ в "Расчеты" -> B108 из AJ: ' + dirtyLeadsFromAJ); //C64
+        setValue(calculationSheet, 'AllLeadYanCurr', dirtyLeadsFromAJ || 0); // Записываем в B108, 0 если undefined
+      }
+
+      // Проверить, что над этой строкой находится текст "ЧИСТЫЕ" ЛИДЫ
+      if (i > 0 && values[i - 1][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+        foundMonthClean = true;
+        Logger.log('Найден выбранный месяц и год для "ЧИСТЫХ" ЛИДОВ на строке: ' + (i + 1));
+
+        // Обновить данные на листе с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+        setValue(targetSheet, 'F161', values[i + 6][1]); // Чистые лиды ПЛАН
+        setValue(targetSheet, 'G161', values[i + 6][2]); // Чистые лиды ФАКТ
+        setValue(targetSheet, 'F162', values[i + 8][1]); // CV2(конверсия в бронь) ПЛАН
+        setValue(targetSheet, 'G162', values[i + 8][2]); // CV2(конверсия в бронь) ФАКТ
+
+        // Запись данных для количества "ЧИСТЫЕ" лиды (факт) за текущий месяц в C71
+        var cleanLeadsFromAJ = values[i + 6][35]; // Чистые лиды ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ЧИСТЫЕ в "Расчеты" -> C71 из AJ: ' + cleanLeadsFromAJ);
+        setValue(calculationSheet, 'cleanLeadYanCurr', cleanLeadsFromAJ || '0'); // Записываем в C71, 0 если undefined
+      }
+    }
+  }
+
+  if (!foundMonthDirty) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ на листе "воронка (яндекс)".');
+  }
+
+  if (!foundMonthClean) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ на листе "воронка (яндекс)".');
+  }
+}
+
+function fetchDataFromCianFunnel() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+  var cianSheet = ss.getSheetByName('воронка (циан)'); // Лист "воронка (циан)"
+
+  if (!cianSheet) {
+    Logger.log('Лист "воронка (циан)" не найден.');
+    return;
+  }
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, 'H2');
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+  if (!targetSheet) {
+    Logger.log('Лист "' + sheetName + '" не найден.');
+    return;
+  }
+
+  var formattedMonthYear = (selectedMonth + ' ' + selectedYear).toUpperCase().trim();
+  Logger.log('Выбранный месяц и год: ' + formattedMonthYear);
+
+  var range = cianSheet.getDataRange();
+  var values = range.getValues();
+  var foundMonthDirty = false;
+  var foundMonthClean = false;
+
+  // Обход всех строк в "воронка (циан)"
+  for (var i = 0; i < values.length - 1; i++) {
+    // Поиск "ГРЯЗНЫХ" ЛИДОВ
+    if (values[i][0].toString().toUpperCase() === '"ГРЯЗНЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+        foundMonthDirty = true;
+        Logger.log('Найден месяц и год для "ГРЯЗНЫХ" ЛИДОВ на строке ' + (i + 2));
+
+        // Запись данных для грязных лидов в лист текущего месяца
+        updateCianData(targetSheet, cianSheet, i + 2, "Бюджет", 167);
+        updateCianData(targetSheet, cianSheet, i + 2, "Лиды ГРЯЗНЫЕ", 168);
+        updateCianData(targetSheet, cianSheet, i + 2, "Цена ночи", 171);
+        updateCianData(targetSheet, cianSheet, i + 2, "Выручка", 172);
+
+        // Запись данных для "ГРЯЗНЫЕ" лиды (факт) за текущий месяц в C65
+        var dirtyLeadsFromAJ = values[i + 6][35]; // Лиды ГРЯЗНЫЕ ФАКТ из столбца AJ
+        Logger.log('📌 Запись лидов ГРЯЗНЫЕ в "Расчеты" -> B109 из AJ: ' + dirtyLeadsFromAJ);
+        setValue(calculationSheet, 'AllLeadCianCurr', dirtyLeadsFromAJ || 0); // Записываем в C65, 0 если undefined
+      }
+    }
+
+    // Поиск "ЧИСТЫХ" ЛИДОВ
+    if (values[i][0].toString().toUpperCase() === '"ЧИСТЫЕ" ЛИДЫ') {
+      if (values[i + 1][0].toString().toUpperCase() === formattedMonthYear) {
+        foundMonthClean = true;
+        Logger.log('Найден месяц и год для "ЧИСТЫХ" ЛИДОВ на строке ' + (i + 2));
+
+        // Поиск строки "Лиды ЧИСТЫЕ" после месяца
+        for (var j = i + 2; j < values.length; j++) {
+          if (values[j][0].toString().toUpperCase() === 'ЛИДЫ ЧИСТЫЕ') {
+            Logger.log('Найдены "Лиды ЧИСТЫЕ" на строке ' + (j + 1));
+
+            // Запись данных в лист текущего месяца
+            updateCianData(targetSheet, cianSheet, j, "Лиды ЧИСТЫЕ", 166);
+            updateCianData(targetSheet, cianSheet, i + 2, "CV2(конверсия в бронь)", 170);
+
+            // Запись данных для "ЧИСТЫЕ" лиды (факт) за текущий месяц в B113
+            var cleanLeadsFromAJ = values[j][35]; // Чистые лиды ФАКТ из столбца AJ
+            Logger.log('📌 Запись лидов ЧИСТЫЕ в "Расчеты" -> B113 из AJ: ' + cleanLeadsFromAJ);
+            setValue(calculationSheet, 'cleanLeadCianCurr', cleanLeadsFromAJ || 0); // Записываем в B113, 0 если undefined
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (!foundMonthDirty) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ГРЯЗНЫЕ" ЛИДЫ на листе "воронка (циан)".');
+  }
+
+  if (!foundMonthClean) {
+    Logger.log('Выбранный месяц и год не найдены в разделе "ЧИСТЫЕ" ЛИДЫ на листе "воронка (циан)".');
+  }
+}

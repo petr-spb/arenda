@@ -1,0 +1,630 @@
+
+function updateAverageCheckData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек CellselectedMonth и CellSelectedYear на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  
+  Logger.log('Ср знач Выбранный месяц: ' + selectedMonth);
+  Logger.log('Ср знач Выбранный год: ' + selectedYear);
+
+  // Преобразуем месяц в числовое значение
+  var monthNum = getMonthNumber(selectedMonth); // Преобразуем название месяца в его числовое значение
+  var shortYear = selectedYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем названия листов
+  var monthSheetName = `${selectedMonth.toUpperCase()} ${shortYear}`;
+  var personalSalesSheetName = `Личные продажи ${monthNum}.${selectedYear}`;
+  
+  Logger.log('Ср знач Лист месяца: ' + monthSheetName);
+  Logger.log('Ср знач Лист личных продаж: ' + personalSalesSheetName);
+
+  var monthSheet = ss.getSheetByName(monthSheetName);
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+
+  if (!monthSheet || !personalSalesSheet) {
+    Logger.log('Ср знач Один из листов не найден: ' + monthSheetName + ' или ' + personalSalesSheetName);
+    return;
+  }
+
+  // Нана: Средний чек (Наталья)
+  var planValueNana = getValue(monthSheet, CellAverageCheckNana); // F28 плановые значения лист МЕСЯЦ ГГ
+  var nanaCell = findCellByValue(personalSalesSheet, 'Наталья средний чек');
+  var factValueNana = nanaCell ? personalSalesSheet.getRange(nanaCell.getRow(), 33).getValue() : 0; // AG = 33-й столбец
+  Logger.log('Нана: План = ' + planValueNana + ', Факт = ' + factValueNana);
+
+  setValue(calculationSheet, 'I7', planValueNana);
+  setValue(calculationSheet, 'J7', Math.round(factValueNana));
+  Logger.log('Записываемое значение Наталья: ' + factValueNana);
+  setValue(monthSheet, 'G28', Math.round(factValueNana));
+  
+  // Саша: Средний чек
+  var planValueSasha = getValue(monthSheet, CellAverageCheckSasha); // F15
+  var sashaCell = findCellByValue(personalSalesSheet, 'Саша средний чек');
+  var factValueSasha = sashaCell ? personalSalesSheet.getRange(sashaCell.getRow(), 33).getValue() : 0; // AG = 33-й столбец
+  Logger.log('Саша: План = ' + planValueSasha + ', Факт = ' + factValueSasha);
+
+  setValue(calculationSheet, 'I8', planValueSasha);
+  setValue(calculationSheet, 'J8', Math.round(factValueSasha));
+  setValue(monthSheet, 'G15', Math.round(factValueSasha));
+
+  Logger.log('Данные для среднего чека вставлены в лист "Расчеты".');
+}
+
+
+
+
+// Получение Личных продаж менеджеров за период
+function updateManagerRevenueData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек CellselectedMonth и CellSelectedYear на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+
+  // Преобразуем месяц в числовое значение
+  var monthNum = getMonthNumber(selectedMonth); // Преобразуем название месяца в его числовое значение
+  var shortYear = selectedYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем название листа личных продаж
+  var monthSheetName = `${selectedMonth.toUpperCase()} ${shortYear}`;
+  var personalSalesSheetName = `Личные продажи ${monthNum}.${selectedYear}`;
+  Logger.log('Лист личных продаж: ' + personalSalesSheetName);
+
+  var monthSheet = ss.getSheetByName(monthSheetName);
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+
+  if (!personalSalesSheet) {
+    Logger.log('Лист личных продаж не найден: ' + personalSalesSheetName);
+    return;
+  }
+
+  // Нана: Выручка Нана
+  var nanaCell = findCellByValue(personalSalesSheet, 'Наталья итого');
+  var revenueNana = nanaCell ? personalSalesSheet.getRange(nanaCell.getRow(), 34).getValue() : 0; // AH = 34-й столбец
+  var planRevenueNana = getValue(monthSheet, 'F29');
+  Logger.log('Нана: Выручка Нана = ' + revenueNana);
+  Logger.log('План выручки Нана: ' + planRevenueNana);
+
+  setValue(calculationSheet, 'G7', planRevenueNana);
+  setValue(calculationSheet, 'H7', revenueNana);
+  setValue(monthSheet, 'G29', revenueNana);
+
+  // Саша: Выручка Саша
+  var sashaCell = findCellByValue(personalSalesSheet, 'Саша итого');
+  var revenueSasha = sashaCell ? personalSalesSheet.getRange(sashaCell.getRow(), 34).getValue() : 0; // AH = 34-й столбец
+  var planRevenueSasha = getValue(monthSheet, 'F16');
+  Logger.log('Саша: Выручка Саша = ' + revenueSasha);
+  Logger.log('План выручки Саша: ' + planRevenueSasha);
+
+  setValue(calculationSheet, 'G8', planRevenueSasha);
+  setValue(calculationSheet, 'H8', revenueSasha);
+  setValue(monthSheet, 'G16', revenueSasha);
+
+  Logger.log('Выручка Нана ' + revenueNana);
+  Logger.log('Выручка Саша ' + revenueSasha);
+
+  Logger.log('Данные выручки по менеджерам вставлены в лист "Расчеты".');
+}
+
+// Функция для записи продлений по часам
+function updateSalesSheetHoursExtension() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  
+  // Получаем месяц и год
+  var selectedMonth = String(getValue(calculationSheet, CellselectedMonth)).trim();
+  var selectedYear = String(getValue(calculationSheet, CellSelectedYear)).trim();
+  
+  // Преобразуем название месяца в числовой формат (например, "Январь" → "01")
+  var monthNumber = getMonthNumber(selectedMonth);
+
+  // Формируем название листа "Личные продажи ММ.ГГГГ"
+  var salesSheetName = 'Личные продажи ' + monthNumber + '.' + selectedYear;
+  var salesSheet = ss.getSheetByName(salesSheetName);
+  
+  if (!salesSheet) {
+    Logger.log('❌ Лист "' + salesSheetName + '" не найден!');
+    return;
+  }
+  
+  Logger.log('📌 Получаем данные из листа: ' + salesSheetName);
+
+  // Получаем данные для менеджеров
+  var nanaPersonalCell = findCellByValue(salesSheet, 'Наталья продление по часам');
+  var nanaPersonalHours = nanaPersonalCell ? parseFloat(salesSheet.getRange(nanaPersonalCell.getRow(), 33).getValue()) || 0 : 0; // AG = 33-й столбец
+  var nanaWebsiteCell = findCellByValue(salesSheet, 'Продление по часам Наталья');
+  var nanaWebsiteHours = nanaWebsiteCell ? parseFloat(salesSheet.getRange(nanaWebsiteCell.getRow(), 33).getValue()) || 0 : 0; // AG = 33-й столбец
+  var nanaHours = nanaPersonalHours + nanaWebsiteHours;
+
+  var sashaPersonalCell = findCellByValue(salesSheet, 'Саша продление по часам');
+  var sashaPersonalHours = sashaPersonalCell ? parseFloat(salesSheet.getRange(sashaPersonalCell.getRow(), 33).getValue()) || 0 : 0; // AG = 33-й столбец
+  var sashaWebsiteCell = findCellByValue(salesSheet, 'Продление по часам Саша');
+  var sashaWebsiteHours = sashaWebsiteCell ? parseFloat(salesSheet.getRange(sashaWebsiteCell.getRow(), 33).getValue()) || 0 : 0; // AG = 33-й столбец
+  var sashaHours = sashaPersonalHours + sashaWebsiteHours;
+
+  Logger.log('✅ Продление по часам (Нана): ' + nanaHours);
+  Logger.log('✅ Продление по часам (Саша): ' + sashaHours);
+
+  // Определяем лист "МЕСЯЦ ГГ" (например, "ЯНВАРЬ 25")
+  var monthUpperCase = selectedMonth.toUpperCase();
+  var targetSheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  var monthSheet = ss.getSheetByName(targetSheetName);
+  
+  if (!monthSheet) {
+    Logger.log('❌ Лист месяца "' + targetSheetName + '" не найден!');
+    return;
+  }
+
+  Logger.log('📌 Записываем данные в лист: ' + targetSheetName);
+
+  // Запись данных в ячейки
+  monthSheet.getRange('G32').setValue(nanaHours);
+  monthSheet.getRange('G18').setValue(sashaHours);
+
+  Logger.log('✅ Данные успешно записаны:');
+  Logger.log('   - Нана: ' + nanaHours + ' часов в G32');
+  Logger.log('   - Саша: ' + sashaHours + ' часов в G18');
+}
+
+
+// Функция для записи по отчетным документам
+function updateManagerReportData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ ДАННЫХ МЕНЕДЖЕРОВ ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получение месяца и года
+  var selectedMonth = String(getValue(calculationSheet, CellselectedMonth)).trim();
+  var selectedYear = String(getValue(calculationSheet, CellSelectedYear)).trim();
+  
+  // Преобразуем название месяца в числовой формат (например, "Январь" → "01")
+  var monthNumber = getMonthNumber(selectedMonth);
+
+  // Формируем название листа "Личные продажи ММ.ГГГГ"
+  var salesSheetName = 'Личные продажи ' + monthNumber + '.' + selectedYear;
+  var salesSheet = ss.getSheetByName(salesSheetName);
+
+  if (!salesSheet) {
+    Logger.log('❌ Лист "' + salesSheetName + '" не найден!');
+    return;
+  }
+  
+  Logger.log('📌 Получаем данные из листа: ' + salesSheetName);
+
+  // Получаем данные для менеджеров
+  var nanaCell = findCellByValue(salesSheet, 'Наталья отчетные документы');
+  var nanaData;
+  if (nanaCell) {
+    var nanaRow = nanaCell.getRow();
+    var nanaCellAddress = nanaCell.getA1Notation();
+    var nanaRawValue = salesSheet.getRange(nanaRow, 33).getValue(); // AG = 33-й столбец
+    nanaData = parseFloat(nanaRawValue) || 0;
+    Logger.log('📌 Наталья отчетные документы: найдена ячейка %s (строка %s)', nanaCellAddress, nanaRow);
+    Logger.log('   - Значение в AG (сырое): %s', nanaRawValue);
+    Logger.log('   - Значение в AG (преобразованное): %s', nanaData);
+  } else {
+    nanaData = 0;
+    Logger.log('❌ Наталья отчетные документы: ячейка с текстом не найдена');
+  }
+
+  var sashaCell = findCellByValue(salesSheet, 'Саша отчетные документы');
+  var sashaData;
+  if (sashaCell) {
+    var sashaRow = sashaCell.getRow();
+    var sashaCellAddress = sashaCell.getA1Notation();
+    var sashaRawValue = salesSheet.getRange(sashaRow, 33).getValue(); // AG = 33-й столбец
+    sashaData = parseFloat(sashaRawValue) || 0;
+    Logger.log('📌 Саша отчетные документы: найдена ячейка %s (строка %s)', sashaCellAddress, sashaRow);
+    Logger.log('   - Значение в AG (сырое): %s', sashaRawValue);
+    Logger.log('   - Значение в AG (преобразованное): %s', sashaData);
+  } else {
+    sashaData = 0;
+    Logger.log('❌ Саша отчетные документы: ячейка с текстом не найдена');
+  }
+
+  Logger.log('✅ Данные менеджеров (Нана): ' + nanaData);
+  Logger.log('✅ Данные менеджеров (Саша): ' + sashaData);
+
+  // Определяем лист "МЕСЯЦ ГГ" (например, "ЯНВАРЬ 25")
+  var monthUpperCase = selectedMonth.toUpperCase();
+  var targetSheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  var monthSheet = ss.getSheetByName(targetSheetName);
+
+  if (!monthSheet) {
+    Logger.log('❌ Лист месяца "' + targetSheetName + '" не найден!');
+    return;
+  }
+
+  Logger.log('📌 Записываем данные в лист: ' + targetSheetName);
+
+  // Запись данных в ячейки
+  setValue(monthSheet, 'G30', nanaData);
+  setValue(monthSheet, 'G17', sashaData);
+
+  Logger.log('✅ Данные успешно записаны:');
+  Logger.log('   - Нана: ' + nanaData + ' -> G30');
+  Logger.log('   - Саша: ' + sashaData + ' -> G17');
+}
+
+// Функция findCellByValue (для полноты, предполагается, что она уже есть в ваших файлах)
+function findCellByValue(sheet, value) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    for (var j = 0; j < data[i].length; j++) {
+      if (data[i][j] === value) {
+        return sheet.getRange(i + 1, j + 1);
+      }
+    }
+  }
+  return null;
+}
+
+
+
+// Функция для записи комиссий коллег
+function updateSalesSheetCommissions() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ КОМИССИЙ КОЛЛЕГ ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получаем месяц и год
+  var selectedMonth = String(getValue(calculationSheet, CellselectedMonth)).trim();
+  var selectedYear = String(getValue(calculationSheet, CellSelectedYear)).trim();
+  
+  // Преобразуем название месяца в числовой формат (например, "Январь" → "01")
+  var monthNumber = getMonthNumber(selectedMonth);
+
+  // Формируем название листа "Личные продажи ММ.ГГГГ"
+  var salesSheetName = 'Личные продажи ' + monthNumber + '.' + selectedYear;
+  var salesSheet = ss.getSheetByName(salesSheetName);
+  
+  if (!salesSheet) {
+    Logger.log('❌ Лист "' + salesSheetName + '" не найден!');
+    return;
+  }
+  
+  Logger.log('📌 Получаем данные из листа: ' + salesSheetName);
+
+  // Получаем комиссии коллег
+  var nanaCell = findCellByValue(salesSheet, 'Наталья комиссия от коллег');
+  var nanaCommission;
+  if (nanaCell) {
+    var nanaRow = nanaCell.getRow();
+    var nanaCellAddress = nanaCell.getA1Notation();
+    var nanaRawValue = salesSheet.getRange(nanaRow, 33).getValue(); // AG = 33-й столбец
+    nanaCommission = parseFloat(nanaRawValue) || 0;
+    Logger.log('📌 Наталья комиссия от коллег: найдена ячейка %s (строка %s)', nanaCellAddress, nanaRow);
+    Logger.log('   - Значение в AG (сырое): %s', nanaRawValue);
+    Logger.log('   - Значение в AG (преобразованное): %s', nanaCommission);
+  } else {
+    nanaCommission = 0;
+    Logger.log('❌ Наталья комиссия от коллег: ячейка с текстом не найдена');
+  }
+
+  var sashaCell = findCellByValue(salesSheet, 'Саша коммисия от коллег');
+  var sashaCommission;
+  if (sashaCell) {
+    var sashaRow = sashaCell.getRow();
+    var sashaCellAddress = sashaCell.getA1Notation();
+    var sashaRawValue = salesSheet.getRange(sashaRow, 33).getValue(); // AG = 33-й столбец
+    sashaCommission = parseFloat(sashaRawValue) || 0;
+    Logger.log('📌 Саша коммисия от коллег: найдена ячейка %s (строка %s)', sashaCellAddress, sashaRow);
+    Logger.log('   - Значение в AG (сырое): %s', sashaRawValue);
+    Logger.log('   - Значение в AG (преобразованное): %s', sashaCommission);
+  } else {
+    sashaCommission = 0;
+    Logger.log('❌ Саша коммисия от коллег: ячейка с текстом не найдена');
+  }
+
+  Logger.log('✅ Комиссия коллег (Нана): ' + nanaCommission + ' руб.');
+  Logger.log('✅ Комиссия коллег (Саша): ' + sashaCommission + ' руб.');
+
+  // Определяем лист "МЕСЯЦ ГГ" (например, "ЯНВАРЬ 25")
+  var monthUpperCase = selectedMonth.toUpperCase();
+  var targetSheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  var monthSheet = ss.getSheetByName(targetSheetName);
+  
+  if (!monthSheet) {
+    Logger.log('❌ Лист месяца "' + targetSheetName + '" не найден!');
+    return;
+  }
+
+  Logger.log('📌 Записываем данные в лист: ' + targetSheetName);
+
+  // Запись данных в ячейки
+  monthSheet.getRange('G31').setValue(nanaCommission);  // Комиссия коллег (Нана)
+  monthSheet.getRange('G19').setValue(sashaCommission); // Комиссия коллег (Саша)
+
+  Logger.log('✅ Данные успешно записаны:');
+  Logger.log('   - Нана (Комиссия): ' + nanaCommission + ' руб. -> G31');
+  Logger.log('   - Саша (Комиссия): ' + sashaCommission + ' руб. -> G19');
+}
+
+
+// Основная функция для расчета общего среднего чека за текущий месяц
+function calculateTotalAverageCheck() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек H2 и F2 на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+
+  Logger.log('Ср знач Выбранный месяц: ' + selectedMonth);
+  Logger.log('Ср знач Выбранный год: ' + selectedYear);
+
+  // Преобразуем название месяца в его числовое значение
+  var monthNum = getMonthNumber(selectedMonth);
+  var shortYear = selectedYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем названия листов
+  var monthSheetName = `${selectedMonth.toUpperCase()} ${shortYear}`;
+  var personalSalesSheetName = `Личные продажи ${monthNum}.${selectedYear}`;
+
+  Logger.log('Ср знач Лист месяца: ' + monthSheetName);
+  Logger.log('Ср знач Лист личных продаж: ' + personalSalesSheetName);
+
+  var monthSheet = ss.getSheetByName(monthSheetName);
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+
+  if (!personalSalesSheet || !monthSheet) {
+    if (!personalSalesSheet) {
+      Logger.log('Sales sheet not found: ' + personalSalesSheetName);
+    }
+    if (!monthSheet) {
+      Logger.log('Month sheet not found: ' + monthSheetName);
+    }
+    Logger.log('One or both sheets not found!');
+    return;
+  }
+
+  // Шаг 1: Получение значения общей выручки
+  // var generalRevenueCell = findCellByValue(personalSalesSheet, 'Выручка общая');
+  var generalRevenueCell = findCellByValue(personalSalesSheet, 'Выручка за период');
+  if (!generalRevenueCell) {
+    Logger.log('General revenue cell not found!');
+    return;
+  }
+
+  var generalRevenueRow = generalRevenueCell.getRow() + 1;
+  var generalRevenue = personalSalesSheet.getRange(generalRevenueRow, generalRevenueCell.getColumn()).getValue();
+
+  // Шаг 2: Получение значения G49 из листа "МЕСЯЦ ГГ"
+  var g49Value = monthSheet.getRange('AP49').getValue(); // количество сданных квартир за период
+
+  Logger.log(g49Value);
+
+  if (g49Value == 0) {
+    Logger.log('G49 value is zero, cannot divide by zero!');
+    return;
+  }
+
+  // Шаг 3: Расчет среднего чека
+  var averageCheck = generalRevenue / g49Value;
+  Logger.log(generalRevenue);
+  Logger.log(averageCheck);
+
+  // Округление среднего чека до ближайшего целого числа
+  var roundedAverageCheck = Math.round(averageCheck);
+
+  // Шаг 4: Запись среднего чека на листе "Личные продажи **.####"
+  var averageCheckCell = findCellByValue(personalSalesSheet, 'Средний чек общий');
+  if (!averageCheckCell) {
+    Logger.log('Average check cell not found!');
+    return;
+  }
+
+  var averageCheckRow = averageCheckCell.getRow() + 1;
+  setValue(personalSalesSheet, 'A' + averageCheckRow, roundedAverageCheck);
+
+  Logger.log('Average Check: ' + roundedAverageCheck);
+  return roundedAverageCheck;
+}
+
+
+
+// Функция для получения общей выручки и выручки за период
+function totalRevenue() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+  Logger.log('Start function totalRevenue()');
+
+  // Получаем значения из ячеек H2 и F2 на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, 'H2'); // Замените CellselectedMonth на 'H2' или другую нужную ячейку
+  var selectedYear = getValue(calculationSheet, 'F2'); // Замените CellSelectedYear на 'F2' или другую нужную ячейку
+
+  // Преобразуем месяц в числовое значение и форматируем его с ведущим нулем
+  var monthNum = getMonthNumber(selectedMonth); // Преобразуем название месяца в его числовое значение
+  Logger.log('Month num: ' + monthNum);
+  var shortYear = selectedYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем названия листов
+  var monthSheetName = `${selectedMonth.toUpperCase()} ${shortYear}`;
+  var personalSalesSheetName = `Личные продажи ${monthNum}.${selectedYear}`;
+  Logger.log('Name: ' + personalSalesSheetName);
+
+  var monthSheet = ss.getSheetByName(monthSheetName);
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+  Logger.log('Sheet personal: ' + personalSalesSheet);
+
+  // Шаг 1: Получение значения общей выручки
+  var generalRevenueCell = findCellByValue(personalSalesSheet, 'Выручка общая');
+  // var generalRevenueCell = findCellByValue(personalSalesSheet, 'Выручка за период');
+  if (!generalRevenueCell) {
+    Logger.log('General revenue cell not found!');
+    return;
+  }
+
+  var generalRevenueRow = generalRevenueCell.getRow() + 1;
+  var generalRevenue = personalSalesSheet.getRange(generalRevenueRow, generalRevenueCell.getColumn()).getValue();
+
+  setValue(monthSheet, totalRevenueG, generalRevenue); // Лист МЕСЯЦ ГГ, G145 Настроил именованную переменную MS_TotalRevenue
+
+  // Шаг 2: Получение значения "Выручка за период" и запись его на лист "Расчеты" в ячейку A48
+  var periodRevenueCell = findCellByValueInColumn(personalSalesSheet, 'Выручка за период', 'A');
+  Logger.log('Ячейка для Выручка за период ' + periodRevenueCell)
+  if (periodRevenueCell) {
+    var periodRevenueRow = periodRevenueCell.getRow() + 1;
+    var periodRevenue = personalSalesSheet.getRange(periodRevenueRow, periodRevenueCell.getColumn()).getValue();
+    setValue(calculationSheet, 'CALC_RevenuePeriod', periodRevenue);
+    setValue(monthSheet, 'G14', periodRevenue)
+    // setValue(calculationSheet, 'B101', periodRevenue);
+    Logger.log('Period revenue: ' + periodRevenue);
+  } else {
+    Logger.log('Period revenue cell not found!');
+  }
+}
+
+
+// Сравнение средних чеков, получает значения в текущего и пред месяца
+// используется доп функция getWeeklyValues
+function compareWeeklyAverages() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('📌 Запуск compareWeeklyAverages');
+
+  // Получаем значения выбранного месяца и года
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  Logger.log('📌 Выбран месяц: ' + selectedMonth);
+  Logger.log('📌 Выбран год: ' + selectedYear);
+
+  // Преобразуем месяц в числовое значение
+  var monthNum = getMonthNumber(selectedMonth);
+  var shortYear = selectedYear.toString().slice(-2);
+  Logger.log('📌 Текущий месяц: ' + monthNum + ', Короткий год: ' + shortYear);
+
+  // Определяем прошлый месяц и соответствующий год
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = previousMonthData.month;
+  var previousYear = previousMonthData.year;
+  var previousMonthNum = getMonthNumber(previousMonth);
+  var previousShortYear = previousYear.toString().slice(-2);
+  Logger.log('📌 Прошлый месяц: ' + previousMonth + ', Год: ' + previousYear);
+  Logger.log('📌 Прошлый месяц (число): ' + previousMonthNum + ', Короткий год: ' + previousShortYear);
+
+  // Формируем названия листов
+  var personalSalesSheetName = `Личные продажи ${monthNum}.${selectedYear}`;
+  var previousPersonalSalesSheetName = `Личные продажи ${previousMonthNum}.${previousYear}`;
+
+  Logger.log('📌 Лист текущего месяца: ' + personalSalesSheetName);
+  Logger.log('📌 Лист прошлого месяца: ' + previousPersonalSalesSheetName);
+
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+  var previousPersonalSalesSheet = ss.getSheetByName(previousPersonalSalesSheetName);
+
+  // Проверяем существование листов
+  if (!personalSalesSheet) {
+    Logger.log('❌ Лист личных продаж не найден: ' + personalSalesSheetName);
+    return;
+  }
+  if (!previousPersonalSalesSheet) {
+    Logger.log('❌ Лист личных продаж прошлого месяца не найден: ' + previousPersonalSalesSheetName);
+    return;
+  }
+
+  Logger.log('✅ Оба листа найдены, продолжаем выполнение.');
+
+  // Получаем значения недель для текущего и прошлого месяца
+  var currentWeeklyValues = getWeeklyValues(personalSalesSheet);
+  var previousWeeklyValues = getWeeklyValues(previousPersonalSalesSheet);
+
+  // Запись выбранного и предыдущего месяца
+  calculationSheet.getRange('M40').setValue(selectedMonth);
+  calculationSheet.getRange('N40').setValue(previousMonth);
+
+  for (var i = 0; i < 4; i++) {
+    calculationSheet.getRange(41 + i, 12).setValue((i + 1) + ' неделя'); // L41 - L44
+    calculationSheet.getRange(41 + i, 13).setValue(currentWeeklyValues[i]); // M41 - M44
+    calculationSheet.getRange(41 + i, 14).setValue(previousWeeklyValues[i]); // N41 - N44
+  }
+
+
+  Logger.log('📌 Значения недель для текущего месяца: ' + JSON.stringify(currentWeeklyValues));
+  Logger.log('📌 Значения недель для прошлого месяца: ' + JSON.stringify(previousWeeklyValues));
+}
+
+
+
+// Функция для получения значение общей выручки за прошлый период
+function totalRevenueLastMonth() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+  Logger.log('Start function totalRevenueLastMonth()');
+
+  // Получаем текущий месяц и год
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  // Вычисляем прошлый месяц и год
+  var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+  var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+  var lastYear = lastMonthDate.getFullYear();
+  var shortLastYear = lastYear.toString().slice(-2);
+
+  // Формируем названия листов
+  var lastMonthSheetName = `${lastMonthName} ${shortLastYear}`;
+  var personalSalesSheetName = `Личные продажи ${getMonthNumber(lastMonthName)}.${lastYear}`;
+
+  var lastMonthSheet = ss.getSheetByName(lastMonthSheetName);
+  var personalSalesSheet = ss.getSheetByName(personalSalesSheetName);
+
+  if (!lastMonthSheet) {
+    Logger.log(`❌ Лист прошлого месяца "${lastMonthSheetName}" не найден!`);
+    return;
+  }
+  if (!personalSalesSheet) {
+    Logger.log(`❌ Лист личных продаж прошлого месяца "${personalSalesSheetName}" не найден!`);
+    return;
+  }
+
+  // Получение значения общей выручки
+  var generalRevenueCell = findCellByValue(personalSalesSheet, 'Выручка общая');
+  if (!generalRevenueCell) {
+    Logger.log('❌ "Выручка общая" не найдена на листе личных продаж прошлого месяца!');
+    return;
+  }
+
+  var generalRevenueRow = generalRevenueCell.getRow() + 1;
+  var generalRevenue = personalSalesSheet.getRange(generalRevenueRow, generalRevenueCell.getColumn()).getValue();
+
+  // Вставка данных в ячейку прошлого месяца
+  setValue(lastMonthSheet, totalRevenueG, generalRevenue);
+  Logger.log(`✅ Данные (${generalRevenue}) успешно записаны в "${lastMonthSheetName}" -> G145`);
+
+  // Получение значения "Выручка за период"
+  var periodRevenueCell = findCellByValue(personalSalesSheet, 'Выручка за период');
+  if (!periodRevenueCell) {
+    Logger.log('❌ "Выручка за период" не найдена на листе личных продаж прошлого месяца!');
+    return;
+  }
+
+  var periodRevenueRow = periodRevenueCell.getRow() + 1;
+  var periodRevenue = personalSalesSheet.getRange(periodRevenueRow, periodRevenueCell.getColumn()).getValue();
+
+  // Вставка данных в ячейку A49 на листе "Расчеты"
+  setValue(calculationSheet, 'CALC_RevenuePeriodLastPeriod', periodRevenue);
+  // setValue(calculationSheet, 'C101', periodRevenue);
+  Logger.log(`✅ Данные (${periodRevenue}) успешно записаны в "Расчеты" -> A49`);
+}

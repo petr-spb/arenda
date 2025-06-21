@@ -1,0 +1,178 @@
+// previousPeriod
+
+/**
+ * Функция для получения данных о загрузке квартир в процентах за период от первого числа до текущего числа
+ * за выбранный месяц и предыдущий месяц
+ */
+function getOccupancyRatesForCurrentAndPreviousMonth() {
+
+  Logger.log('Вызываем функцию getOccupancyRatesForCurrentAndPreviousMonth');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения текущего месяца и года
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+
+  // Получаем предыдущий месяц и год
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = previousMonthData.month;
+  var previousYear = previousMonthData.year;
+
+  // Формируем названия листов
+  var currentMonthSheetName = `${selectedMonth.toUpperCase()} ${selectedYear.toString().slice(-2)}`;
+  var previousMonthSheetName = `${previousMonth.toUpperCase()} ${previousYear.toString().slice(-2)}`;
+
+  // Получаем листы текущего и предыдущего месяца
+  var currentMonthSheet = ss.getSheetByName(currentMonthSheetName);
+  var previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+
+  if (!currentMonthSheet || !previousMonthSheet) {
+    if (!currentMonthSheet) {
+      Logger.log('Current month sheet not found: ' + currentMonthSheetName);
+    }
+    if (!previousMonthSheet) {
+      Logger.log('Previous month sheet not found: ' + previousMonthSheetName);
+    }
+    Logger.log('One or both sheets not found!');
+    return;
+  }
+
+  // Получаем данные для текущего месяца
+  var currentRentalDataCell = findCellByValueInColumn(currentMonthSheet, 'Кол-во сданных квартир (ночей)', 'E');
+  if (!currentRentalDataCell) {
+    Logger.log('Current month rental data cell not found!');
+    return;
+  }
+  var currentRentalData = currentMonthSheet.getRange('AQ' + currentRentalDataCell.getRow()).getValue();
+
+  // Получаем данные для предыдущего месяца
+  var previousRentalDataCell = findCellByValueInColumn(previousMonthSheet, 'Кол-во сданных квартир (ночей)', 'E');
+  if (!previousRentalDataCell) {
+    Logger.log('Previous month rental data cell not found!');
+    return;
+  }
+  var previousRentalData = previousMonthSheet.getRange('AQ' + previousRentalDataCell.getRow()).getValue();
+
+  // Записываем данные на лист "Расчеты"
+  setValue(calculationSheet, 'percentRentAppartCurrMont', currentRentalData);
+  Logger.log('Количество квартир за текущий период ' + currentRentalData)
+  setValue(calculationSheet, 'percentRentAppartLastMont', previousRentalData);
+  Logger.log('Количество квартир за прошлый период '+ previousRentalData)
+
+  Logger.log('Updated rental data on the "Расчеты" sheet.');
+}
+
+
+// Основная функция для расчета среднего чека за предыдущий месяц
+function calculatePreviousMonthAverageCheck() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек H2 и F2 на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+
+  Logger.log('Ср знач Выбранный месяц: ' + selectedMonth);
+  Logger.log('Ср знач Выбранный год: ' + selectedYear);
+
+  // Получаем предыдущий месяц и год
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = previousMonthData.month;
+  var previousYear = previousMonthData.year;
+
+  Logger.log('Предыдущий месяц: ' + previousMonth);
+  Logger.log('Предыдущий год: ' + previousYear);
+
+  // Преобразуем название месяца в его числовое значение
+  var previousMonthNum = getMonthNumber(previousMonth);
+  var previousShortYear = previousYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем названия листов
+  var previousMonthSheetName = `${previousMonth.toUpperCase()} ${previousShortYear}`;
+  var previousPersonalSalesSheetName = `Личные продажи ${previousMonthNum}.${previousYear}`;
+
+  Logger.log('Ср знач Лист предыдущего месяца: ' + previousMonthSheetName);
+  Logger.log('Ср знач Лист личных продаж предыдущего месяца: ' + previousPersonalSalesSheetName);
+
+  var previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+  var previousPersonalSalesSheet = ss.getSheetByName(previousPersonalSalesSheetName);
+
+  if (!previousPersonalSalesSheet || !previousMonthSheet) {
+    if (!previousPersonalSalesSheet) {
+      Logger.log('Sales sheet not found: ' + previousPersonalSalesSheetName);
+    }
+    if (!previousMonthSheet) {
+      Logger.log('Month sheet not found: ' + previousMonthSheetName);
+    }
+    Logger.log('One or both sheets not found!');
+    return;
+  }
+
+  // Шаг 1: Получение значения общей выручки за предыдущий месяц
+  // var previousGeneralRevenueCell = findCellByValue(previousPersonalSalesSheet, 'Выручка общая');
+  var previousGeneralRevenueCell = findCellByValue(previousPersonalSalesSheet, 'Выручка за период');
+  if (!previousGeneralRevenueCell) {
+    Logger.log('General revenue cell not found!');
+    return;
+  }
+
+  var previousGeneralRevenueRow = previousGeneralRevenueCell.getRow() + 1;
+  var previousGeneralRevenue = previousPersonalSalesSheet.getRange(previousGeneralRevenueRow, previousGeneralRevenueCell.getColumn()).getValue();
+
+  // Шаг 2: Получение значения G49 из листа "МЕСЯЦ ГГ" за предыдущий месяц
+  var previousG49Value = previousMonthSheet.getRange('AP49').getValue();
+
+  if (previousG49Value == 0) {
+    Logger.log('G49 value is zero, cannot divide by zero!');
+    return;
+  }
+
+  // Шаг 3: Расчет среднего чека за предыдущий месяц
+  var previousAverageCheck = previousGeneralRevenue / previousG49Value;
+
+  // Округление среднего чека до ближайшего целого числа
+  var roundedPreviousAverageCheck = Math.round(previousAverageCheck);
+
+  // Шаг 4: Запись среднего чека на листе "Личные продажи **.####" за предыдущий месяц
+  var previousAverageCheckCell = findCellByValue(previousPersonalSalesSheet, 'Средний чек общий');
+
+
+
+
+  Logger.log('Ищем текст: "Средний чек за предыдущий период "');
+var range = previousMonthSheet.getDataRange();
+var values = range.getValues();
+for (var i = 0; i < values.length; i++) {
+  for (var j = 0; j < values[i].length; j++) {
+    if (values[i][j].toString().trim().toLowerCase() === 'средний чек за предыдущий период '.toLowerCase()) {
+      Logger.log('Текст найден в ячейке: ' + (i+1) + ',' + (j+1));
+    }
+  }
+}
+
+
+
+
+  if (!previousAverageCheckCell) {
+    Logger.log('Average check cell not found!');
+    return;
+  }
+
+  var previousAverageCheckRow = previousAverageCheckCell.getRow() + 1;
+  setValue(previousPersonalSalesSheet, 'A' + previousAverageCheckRow, roundedPreviousAverageCheck);
+
+  // Шаг 5: Запись среднего чека за предыдущий месяц в текущий месяц
+  var currentMonthSheet = ss.getSheetByName(`${selectedMonth.toUpperCase()} ${selectedYear.toString().slice(-2)}`);
+  var currentMonthAverageCheckCell = findCellByValueInColumn(currentMonthSheet, 'Средний чек за предыдущий период'.trim(), 'E');
+  Logger.log('Строка в которой находится строка с текстом Средний чек за предыдущий период', currentMonthAverageCheckCell);
+  if (!currentMonthAverageCheckCell) {
+    Logger.log('Current month average check cell for previous period not found!');
+    return;
+  }
+  setValue(currentMonthSheet, 'G' + currentMonthAverageCheckCell.getRow(), roundedPreviousAverageCheck);
+
+  Logger.log('Previous Average Check: ' + roundedPreviousAverageCheck);
+  return roundedPreviousAverageCheck;
+}
+

@@ -1,0 +1,846 @@
+// Карты, постоян.гости
+
+function updateYandexMapsData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  var selectedMonth = String(getValue(calculationSheet, CellselectedMonth)).trim();
+  var selectedYear = String(getValue(calculationSheet, CellSelectedYear)).trim();
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+  Logger.log('📌 Выбранный месяц: ' + selectedMonth);
+  Logger.log('📌 Выбранный год: ' + selectedYear);
+  Logger.log('📌 Лист месяца: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('❌ Лист "Карты, постоян.гости" не найден!');
+    return;
+  }
+
+  var targetAddresses = [
+    'КУЙБЫШЕВА 109А ЖК МЕЛАНЖ',
+    'РЕВОЛЮЦИИ 52 ЖК ПРЕМЬЕР',
+    'ОСТРОВСКОГО 52 ЖК ПРЕМЬЕР',
+    'РЕВОЛЮЦИИ 52Б',
+    'РЕВОЛЮЦИИ 52В',
+    'ФРЕЗЕРОВЩИКОВ',
+    'РЕВОЛЮЦИЯ 48Б',
+    'ПАРКОВЫЙ'
+  ];
+
+  var totalPlanLeads = 0;
+  var totalFactLeads = 0;
+  var totalPlanDeals = 0;
+  var totalFactDeals = 0;
+  var totalPlanRevenue = 0;
+  var totalFactRevenue = 0;
+  var totalPlanCleanLeads = 0;
+  var totalFactCleanLeads = 0;
+
+  var values = guestSheet.getDataRange().getValues();
+  var foundMonth = false;
+  var startRow = 0;
+  var endRow = values.length;
+
+  // 🔹 Определяем начало блока для нужного месяца
+  for (var i = 0; i < values.length - 1; i++) {
+    if (String(values[i][0]).trim().toUpperCase() === 'ЯНДЕКС КАРТЫ' &&
+        String(values[i + 1][0]).trim().toUpperCase() === selectedMonth.toUpperCase()) {
+      Logger.log("✅ Найден месяц " + selectedMonth + " после 'Яндекс карты' на строке " + (i + 2));
+      startRow = i + 2;
+      foundMonth = true;
+      break;
+    }
+  }
+
+  if (!foundMonth) {
+    Logger.log('❌ Месяц ' + selectedMonth + ' не найден в блоках "Яндекс карты"!');
+    return;
+  }
+
+  // 🔹 Определяем конец блока (следующий месяц или конец листа)
+  for (var j = startRow; j < values.length; j++) {
+    var cellValue = String(values[j][0]).trim().toUpperCase();
+    if (cellValue.match(/ЯНВАРЬ|ФЕВРАЛЬ|МАРТ|АПРЕЛЬ|МАЙ|ИЮНЬ|ИЮЛЬ|АВГУСТ|СЕНТЯБРЬ|ОКТЯБРЬ|НОЯБРЬ|ДЕКАБРЬ/)) {
+      Logger.log("🔹 Найден следующий месяц (" + cellValue + ") на строке " + (j + 1) + ". Останавливаем поиск.");
+      endRow = j;
+      break;
+    }
+  }
+
+  Logger.log("📌 Поиск адресов с " + startRow + " по " + (endRow - 1) + " строки.");
+
+  // 🔹 Обрабатываем дома внутри блока
+  for (var i = 0; i < targetAddresses.length; i++) {
+    var address = targetAddresses[i];
+    var addressFound = false;
+
+    for (var row = startRow; row < endRow; row++) {
+      if (String(values[row][0]).trim().toUpperCase() === address) {
+        Logger.log("✅ Найден адрес: " + address + " на строке " + (row + 1));
+        addressFound = true;
+
+        var leadsCell = row + 2; // Звонок/переписка
+        var dealCell = row + 6; // Сделка
+        var revenueCell = row + 7; // Выручка
+        var cleanLeadsCell = row + 4; // Лиды Чистые
+
+        Logger.log("🔍 Проверяем строки:");
+        Logger.log("   - Лиды: строка " + (leadsCell + 1));
+        Logger.log("   - Сделка: строка " + (dealCell + 1));
+        Logger.log("   - Выручка: строка " + (revenueCell + 1));
+        Logger.log("   - Лиды Чистые: строка " + (cleanLeadsCell + 1));
+
+        var planLeads = parseFloat(values[leadsCell][1]) || 0;
+        var factLeads = parseFloat(values[leadsCell][2]) || 0;
+        var planDeals = parseFloat(values[dealCell][1]) || 0;
+        var factDeals = parseFloat(values[dealCell][2]) || 0;
+        var planRevenue = parseFloat(values[revenueCell][1]) || 0;
+        var factRevenue = parseFloat(values[revenueCell][2]) || 0;
+        var planCleanLeads = parseFloat(values[cleanLeadsCell][1]) || 0;
+        var factCleanLeads = parseFloat(values[cleanLeadsCell][2]) || 0;
+
+        // 🔹 Умножаем выручку на 1000, если она указана в тысячах
+        if (planRevenue > 0 && planRevenue < 1000) {
+          planRevenue *= 1000;
+        }
+        if (factRevenue > 0 && factRevenue < 1000) {
+          factRevenue *= 1000;
+        }
+
+        Logger.log("   ✅ Лиды: План=" + planLeads + ", Факт=" + factLeads);
+        Logger.log("   ✅ Сделки: План=" + planDeals + ", Факт=" + factDeals);
+        Logger.log("   ✅ Выручка: План=" + planRevenue + ", Факт=" + factRevenue);
+        Logger.log("   ✅ Лиды Чистые: План=" + planCleanLeads + ", Факт=" + factCleanLeads);
+
+        totalPlanLeads += planLeads;
+        totalFactLeads += factLeads;
+        totalPlanDeals += planDeals;
+        totalFactDeals += factDeals;
+        totalPlanRevenue += planRevenue;
+        totalFactRevenue += factRevenue;
+        totalPlanCleanLeads += planCleanLeads;
+        totalFactCleanLeads += factCleanLeads;
+        break;
+      }
+    }
+
+    if (!addressFound) {
+      Logger.log("⚠️ Адрес " + address + " не найден в данных за " + selectedMonth + ". Пропускаем.");
+    }
+  }
+
+  Logger.log("📊 Итоговые данные:");
+  Logger.log("🔹 Лиды (План): " + totalPlanLeads);
+  Logger.log("🔹 Лиды (Факт): " + totalFactLeads);
+  Logger.log("🔹 Сделки (План): " + totalPlanDeals);
+  Logger.log("🔹 Сделки (Факт): " + totalFactDeals);
+  Logger.log("🔹 Выручка (План): " + totalPlanRevenue);
+  Logger.log("🔹 Выручка (Факт): " + totalFactRevenue);
+  Logger.log("🔹 Лиды Чистые (План): " + totalPlanCleanLeads);
+  Logger.log("🔹 Лиды Чистые (Факт): " + totalFactCleanLeads);
+
+  // 🔹 Запись данных в лист месяца
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('❌ Лист месяца "' + sheetName + '" не найден!');
+    return;
+  }
+
+  var yandexMapsTargetCell = findCellByValueInColumn(monthSheet, 'Яндекс карты', 'E');
+  if (!yandexMapsTargetCell) {
+    Logger.log('❌ "Яндекс карты" не найдены в месячном листе!');
+    return;
+  }
+
+  var targetRow = yandexMapsTargetCell.getRow();
+  var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  var cleanLeadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+
+  if (leadsTargetCell && dealsTargetCell && revenueTargetCell && cleanLeadsTargetCell) {
+    monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(totalPlanLeads);
+    monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(totalFactLeads);
+    monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(totalPlanDeals);
+    monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(totalFactDeals);
+    monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(totalPlanRevenue);
+    monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(totalFactRevenue);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 6).setValue(totalPlanCleanLeads);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 7).setValue(totalFactCleanLeads);
+    Logger.log('✅ Данные успешно записаны в ' + sheetName);
+  }
+}
+
+
+function updateVKGroupData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ ДАННЫХ ВК ГРУППА ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получение месяца и года
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('Ошибка: Лист "Карты, постоян.гости" не найден.');
+    return;
+  }
+
+  // Ищем строку "ВК группа <Месяц>"
+  var searchPattern = 'ВК группа ' + selectedMonth;
+  var vkGroupCell = findCellByValue(guestSheet, searchPattern);
+  if (!vkGroupCell) {
+    Logger.log('Ошибка: Не найдена строка "' + searchPattern + '" в "Карты, постоян.гости".');
+    return;
+  }
+  var row = vkGroupCell.getRow();
+  Logger.log('Найдена строка: "' + searchPattern + '" на строке ' + row);
+
+  // Найти нужные строки
+  var leadsCell = findCellByValueInColumn(guestSheet, 'Лиды', 'A', row);
+  var dealsCell = findCellByValueInColumn(guestSheet, 'Сделки', 'A', row);
+  var conversionCell = findCellByValueInColumn(guestSheet, 'CV2(конверсия в бронь)', 'A', row);
+  var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', row);
+  var leadCleanCell = findCellByValueInColumn(guestSheet, 'Лиды Чистые', 'A', row);
+
+  Logger.log('Результат поиска строк:');
+  Logger.log('Лиды: ' + (leadsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Лиды Чистые: ' + (leadCleanCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Сделки: ' + (dealsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Конверсия: ' + (conversionCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Выручка: ' + (revenueCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+
+  var leadsPlanValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 2).getValue() || 0 : 0;
+  var leadsFactValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 3).getValue() || 0 : 0;
+  var leadCleanPlan = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 2).getValue() || 0 : 0;
+  var leadCleanFact = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 3).getValue() || 0 : 0;
+
+  var dealsPlanValue = dealsCell ? guestSheet.getRange(dealsCell.getRow(), 2).getValue() || 0 : 0;
+  var dealsFactValue = dealsCell ? guestSheet.getRange(dealsCell.getRow(), 3).getValue() || 0 : 0;
+
+  var conversionPlanValue = conversionCell ? guestSheet.getRange(conversionCell.getRow(), 2).getValue() || 0 : 0;
+  var conversionFactValue = conversionCell ? guestSheet.getRange(conversionCell.getRow(), 3).getValue() || 0 : 0;
+
+  var revenuePlanValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 2).getValue() || 0 : 0;
+  var revenueFactValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 3).getValue() || 0 : 0;
+
+  // Лист "ЯНВАРЬ 25"
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('Ошибка: Лист "' + sheetName + '" не найден.');
+    return;
+  }
+  Logger.log('Лист месяца "' + sheetName + '" найден.');
+
+  // Найти "ВК группа" в столбце E
+  var vkGroupTargetCell = findCellByValueInColumn(monthSheet, 'ВК группа', 'E');
+  if (!vkGroupTargetCell) {
+    Logger.log('Ошибка: Не найдена строка "ВК группа" в "' + sheetName + '".');
+    return;
+  }
+  var targetRow = vkGroupTargetCell.getRow();
+  Logger.log('Найдена строка "ВК группа" на строке ' + targetRow);
+
+  // Запись "Лиды"
+  var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  if (leadsTargetCell) {
+    monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(leadsPlanValue);
+    monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(leadsFactValue);
+    Logger.log('Записаны "Лиды": План = ' + leadsPlanValue + ', Факт = ' + leadsFactValue);
+  }
+
+  // Запись "Лиды Чистые"
+  var cleanLeadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+  if (cleanLeadsTargetCell) {
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 6).setValue(leadCleanPlan);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 7).setValue(leadCleanFact);
+    Logger.log('Записаны "Лиды Чистые": План = ' + leadCleanPlan + ', Факт = ' + leadCleanFact);
+  }
+
+  // Запись "Сделки"
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  if (dealsTargetCell) {
+    monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(dealsPlanValue);
+    monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(dealsFactValue);
+    Logger.log('Записаны "Сделки": План = ' + dealsPlanValue + ', Факт = ' + dealsFactValue);
+  }
+
+  // Запись "Конверсия"
+  var conversionTargetCell = findCellByValueInColumn(monthSheet, 'CV2(конверсия в бронь)', 'E', targetRow);
+  if (conversionTargetCell) {
+    monthSheet.getRange(conversionTargetCell.getRow(), 6).setValue(conversionPlanValue);
+    monthSheet.getRange(conversionTargetCell.getRow(), 7).setValue(conversionFactValue);
+    Logger.log('Записаны "Конверсия": План = ' + conversionPlanValue + ', Факт = ' + conversionFactValue);
+  }
+
+  // Запись "Выручка"
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  if (revenueTargetCell) {
+    monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(revenuePlanValue);
+    monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(revenueFactValue);
+    Logger.log('Записаны "Выручка": План = ' + revenuePlanValue + ', Факт = ' + revenueFactValue);
+  }
+
+  Logger.log('--- ОБНОВЛЕНИЕ ЗАВЕРШЕНО ---');
+}
+
+
+function updateTelegramChannelData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ ДАННЫХ TELEGRAM КАНАЛ ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получение месяца и года
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('Ошибка: Лист "Карты, постоян.гости" не найден.');
+    return;
+  }
+
+  // Ищем строку "Телеграмм канал <Месяц>"
+  var searchPattern = 'Телеграмм канал ' + selectedMonth;
+  var telegramChannelCell = findCellByValue(guestSheet, searchPattern);
+  if (!telegramChannelCell) {
+    Logger.log('Ошибка: Не найдена строка "' + searchPattern + '" в "Карты, постоян.гости".');
+    return;
+  }
+  var row = telegramChannelCell.getRow();
+  Logger.log('Найдена строка: "' + searchPattern + '" на строке ' + row);
+
+  // Найти нужные строки
+  var leadsCell = findCellByValueInColumn(guestSheet, 'Лиды', 'A', row);
+  var dealsCell = findCellByValueInColumn(guestSheet, 'Сделки', 'A', row);
+  var conversionCell = findCellByValueInColumn(guestSheet, 'CV2(конверсия в бронь)', 'A', row);
+  var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', row);
+  var leadCleanCell = findCellByValueInColumn(guestSheet, 'Лиды Чистые', 'A', row);
+
+  Logger.log('Результат поиска строк:');
+  Logger.log('Лиды: ' + (leadsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Лиды Чистые: ' + (leadCleanCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Сделки: ' + (dealsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Конверсия: ' + (conversionCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Выручка: ' + (revenueCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+
+  var leadsPlanValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 2).getValue() || 0 : 0;
+  var leadsFactValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 3).getValue() || 0 : 0;
+  var leadCleanPlan = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 2).getValue() || 0 : 0;
+  var leadCleanFact = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 3).getValue() || 0 : 0;
+
+  var dealsPlanValue = dealsCell ? guestSheet.getRange(dealsCell.getRow(), 2).getValue() || 0 : 0;
+  var dealsFactValue = dealsCell ? guestSheet.getRange(dealsCell.getRow(), 3).getValue() || 0 : 0;
+
+  var conversionPlanValue = conversionCell ? guestSheet.getRange(conversionCell.getRow(), 2).getValue() || 0 : 0;
+  var conversionFactValue = conversionCell ? guestSheet.getRange(conversionCell.getRow(), 3).getValue() || 0 : 0;
+
+  var revenuePlanValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 2).getValue() || 0 : 0;
+  var revenueFactValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 3).getValue() || 0 : 0;
+
+  // Лист "ЯНВАРЬ 25"
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('Ошибка: Лист "' + sheetName + '" не найден.');
+    return;
+  }
+  Logger.log('Лист месяца "' + sheetName + '" найден.');
+
+  // Найти "Телеграмм канал" в столбце E
+  var telegramChannelTargetCell = findCellByValueInColumn(monthSheet, 'Телеграмм канал', 'E');
+  if (!telegramChannelTargetCell) {
+    Logger.log('Ошибка: Не найдена строка "Телеграмм канал" в "' + sheetName + '".');
+    return;
+  }
+  var targetRow = telegramChannelTargetCell.getRow();
+  Logger.log('Найдена строка "Телеграмм канал" на строке ' + targetRow);
+
+  // Запись "Лиды"
+  var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  if (leadsTargetCell) {
+    monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(leadsPlanValue);
+    monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(leadsFactValue);
+    Logger.log('Записаны "Лиды": План = ' + leadsPlanValue + ', Факт = ' + leadsFactValue);
+  }
+
+  // Запись "Лиды Чистые"
+  var cleanLeadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+  if (cleanLeadsTargetCell) {
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 6).setValue(leadCleanPlan);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 7).setValue(leadCleanFact);
+    Logger.log('Записаны "Лиды Чистые": План = ' + leadCleanPlan + ', Факт = ' + leadCleanFact);
+  }
+
+  // Запись "Сделки"
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  if (dealsTargetCell) {
+    monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(dealsPlanValue);
+    monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(dealsFactValue);
+    Logger.log('Записаны "Сделки": План = ' + dealsPlanValue + ', Факт = ' + dealsFactValue);
+  }
+
+  // Запись "Конверсия"
+  var conversionTargetCell = findCellByValueInColumn(monthSheet, 'CV2(конверсия в бронь)', 'E', targetRow);
+  if (conversionTargetCell) {
+    monthSheet.getRange(conversionTargetCell.getRow(), 6).setValue(conversionPlanValue);
+    monthSheet.getRange(conversionTargetCell.getRow(), 7).setValue(conversionFactValue);
+    Logger.log('Записаны "Конверсия": План = ' + conversionPlanValue + ', Факт = ' + conversionFactValue);
+  }
+
+  // Запись "Выручка"
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  if (revenueTargetCell) {
+    monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(revenuePlanValue);
+    monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(revenueFactValue);
+    Logger.log('Записаны "Выручка": План = ' + revenuePlanValue + ', Факт = ' + revenueFactValue);
+  }
+
+  Logger.log('--- ОБНОВЛЕНИЕ ЗАВЕРШЕНО ---');
+}
+
+function updateRegularGuestsData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  
+  Logger.log('📌 Selected month: ' + selectedMonth);
+  Logger.log('📌 Selected year: ' + selectedYear);
+  Logger.log('📌 Sheet name: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('❌ Sheet "Карты, постоян.гости" not found!');
+    return;
+  }
+
+  var searchPattern = 'Постоянные гости ' + selectedMonth;
+  var regularGuestsCell = findCellByValue(guestSheet, searchPattern);
+
+  if (!regularGuestsCell) {
+    Logger.log('❌ Pattern "' + searchPattern + '" not found in guest sheet');
+    return;
+  }
+
+  Logger.log('✅ Found cell with pattern: ' + searchPattern);
+  var row = regularGuestsCell.getRow();
+
+  // Поиск ячеек с нужными значениями
+  var guestsCountCell = findCellByValueInColumn(guestSheet, 'Количество гостей (сделка)', 'A', row);
+  var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', row);
+  var percentageCell = findCellByValueInColumn(guestSheet, 'Процент постоянных гостей', 'A', row);
+  var leadCell = findCellByValueInColumn(guestSheet, 'Лиды', 'A', row);
+  var leadCleanCell = findCellByValueInColumn(guestSheet, 'Лиды Чистые', 'A', row);
+
+  Logger.log('🔍 Checking found cells:');
+  if (!guestsCountCell) Logger.log('❌ "Количество гостей" not found in guest sheet');
+  if (!revenueCell) Logger.log('❌ "Выручка" not found in guest sheet');
+  if (!percentageCell) Logger.log('❌ "Процент постоянных гостей" not found in guest sheet');
+  if (!leadCell) Logger.log('❌ "Лиды" not found in guest sheet');
+  if (!leadCleanCell) Logger.log('❌ "Лиды Чистые" not found in guest sheet');
+
+  if (!guestsCountCell || !revenueCell || !percentageCell || !leadCell || !leadCleanCell) {
+    Logger.log('❌ One or more source cells not found in guest sheet');
+    return;
+  }
+
+  // Получаем данные
+  var guestsCountPlanValue = guestSheet.getRange(guestsCountCell.getRow(), 2).getValue();
+  var guestsCountFactValue = guestSheet.getRange(guestsCountCell.getRow(), 3).getValue();
+  var revenuePlanValue = guestSheet.getRange(revenueCell.getRow(), 2).getValue();
+  var revenueFactValue = guestSheet.getRange(revenueCell.getRow(), 3).getValue();
+  var percentagePlanValue = guestSheet.getRange(percentageCell.getRow(), 2).getValue();
+  var percentageFactValue = guestSheet.getRange(percentageCell.getRow(), 3).getValue();
+  var leadPlanValue = guestSheet.getRange(leadCell.getRow(), 2).getValue();
+  var leadFactValue = guestSheet.getRange(leadCell.getRow(), 3).getValue();
+  var leadCleanPlanValue = guestSheet.getRange(leadCleanCell.getRow(), 2).getValue();
+  var leadCleanFactValue = guestSheet.getRange(leadCleanCell.getRow(), 3).getValue();
+
+  Logger.log('📊 Retrieved Data:');
+  Logger.log('🔹 Guests Count Plan: ' + guestsCountPlanValue);
+  Logger.log('🔹 Guests Count Fact: ' + guestsCountFactValue);
+  Logger.log('🔹 Revenue Plan: ' + revenuePlanValue);
+  Logger.log('🔹 Revenue Fact: ' + revenueFactValue);
+  Logger.log('🔹 Percentage Plan: ' + percentagePlanValue);
+  Logger.log('🔹 Percentage Fact: ' + percentageFactValue);
+  Logger.log('🔹 Lead Plan: ' + leadPlanValue);
+  Logger.log('🔹 Lead Fact: ' + leadFactValue);
+  Logger.log('🔹 Lead Clean Plan: ' + leadCleanPlanValue);
+  Logger.log('🔹 Lead Clean Fact: ' + leadCleanFactValue);
+
+  // Лист "Месяц ГГ"
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('❌ Month sheet "' + sheetName + '" not found!');
+    return;
+  }
+
+  var regularGuestsTargetCell = findCellByValueInColumn(monthSheet, 'Постоянные гости', 'E');
+  if (!regularGuestsTargetCell) {
+    Logger.log('❌ "Постоянные гости" not found in month sheet');
+    return;
+  }
+
+  var targetRow = regularGuestsTargetCell.getRow();
+  Logger.log('✅ Found "Постоянные гости" in month sheet at row: ' + targetRow);
+
+  // Ищем целевые ячейки
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  var percentageTargetCell = findCellByValueInColumn(monthSheet, 'Процент постоянных гостей', 'E', targetRow);
+  var leadTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  var leadCleanTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+
+  Logger.log('🔍 Checking target cells:');
+  if (!dealsTargetCell) Logger.log('❌ "Сделки" not found in month sheet');
+  if (!revenueTargetCell) Logger.log('❌ "Выручка" not found in month sheet');
+  if (!percentageTargetCell) Logger.log('❌ "Процент постоянных гостей" not found in month sheet');
+  if (!leadTargetCell) Logger.log('❌ "Лиды" not found in month sheet');
+  if (!leadCleanTargetCell) Logger.log('❌ "Лиды Чистые" not found in month sheet');
+
+  if (!dealsTargetCell || !revenueTargetCell || !percentageTargetCell || !leadTargetCell || !leadCleanTargetCell) {
+    Logger.log('❌ One or more target cells not found in month sheet');
+    return;
+  }
+
+  // Записываем данные в итоговый лист
+  monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(guestsCountPlanValue);
+  monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(guestsCountFactValue);
+  monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(revenuePlanValue);
+  monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(revenueFactValue);
+  monthSheet.getRange(percentageTargetCell.getRow(), 6).setValue(percentagePlanValue);
+  monthSheet.getRange(percentageTargetCell.getRow(), 7).setValue(percentageFactValue);
+  monthSheet.getRange(leadTargetCell.getRow(), 6).setValue(leadPlanValue);
+  monthSheet.getRange(leadTargetCell.getRow(), 7).setValue(leadFactValue);
+  monthSheet.getRange(leadCleanTargetCell.getRow(), 6).setValue(leadCleanPlanValue);
+  monthSheet.getRange(leadCleanTargetCell.getRow(), 7).setValue(leadCleanFactValue);
+
+  Logger.log('✅ Data successfully inserted into month sheet');
+}
+
+
+function updateGoogleMapsData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ ДАННЫХ GOOGLE MAPS ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получение месяца и года
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('Ошибка: Лист "Карты, постоян.гости" не найден.');
+    return;
+  }
+
+  // Ищем строку "Гугл карты <Месяц>"
+  var searchPattern = 'Гугл карты ' + selectedMonth;
+  var googleMapsCell = findCellByValue(guestSheet, searchPattern);
+  if (!googleMapsCell) {
+    Logger.log('Ошибка: Не найдена строка "' + searchPattern + '" в "Карты, постоян.гости".');
+    return;
+  }
+  var row = googleMapsCell.getRow();
+  Logger.log('Найдена строка: "' + searchPattern + '" на строке ' + row);
+
+  // Найти нужные строки
+  var leadsCell = findCellByValueInColumn(guestSheet, 'Лиды', 'A', row);
+  var dealCell = findCellByValueInColumn(guestSheet, 'Сделка', 'A', row);
+  var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', row);
+  var leadCleanCell = findCellByValueInColumn(guestSheet, 'Лиды Чистые', 'A', row);
+
+  Logger.log('Результат поиска строк:');
+  Logger.log('Лиды: ' + (leadsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Лиды Чистые: ' + (leadCleanCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Сделка: ' + (dealCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Выручка: ' + (revenueCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+
+  var leadsPlanValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 2).getValue() || 0 : 0;
+  var totalPlanLeadsValue = leadsPlanValue;
+  var leadsFactValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 3).getValue() || 0 : 0;
+  var totalFactLeadsValue = leadsFactValue;
+
+  var leadCleanPlan = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 2).getValue() || 0 : 0;
+  var leadCleanFact = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 3).getValue() || 0 : 0;
+
+  var dealsPlanValue = dealCell ? guestSheet.getRange(dealCell.getRow(), 2).getValue() || 0 : 0;
+  var dealsFactValue = dealCell ? guestSheet.getRange(dealCell.getRow(), 3).getValue() || 0 : 0;
+
+  var revenuePlanValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 2).getValue() || 0 : 0;
+  var revenueFactValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 3).getValue() || 0 : 0;
+
+  // Лист "ЯНВАРЬ 25"
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('Ошибка: Лист "' + sheetName + '" не найден.');
+    return;
+  }
+  Logger.log('Лист месяца "' + sheetName + '" найден.');
+
+  // Найти "Google Карты" в столбце E
+  var googleMapsTargetCell = findCellByValueInColumn(monthSheet, 'Google Карты', 'E');
+  if (!googleMapsTargetCell) {
+    Logger.log('Ошибка: Не найдена строка "Google Карты" в "' + sheetName + '".');
+    return;
+  }
+  var targetRow = googleMapsTargetCell.getRow();
+  Logger.log('Найдена строка "Google Карты" на строке ' + targetRow);
+
+  // Запись "Лиды"
+  var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  if (leadsTargetCell) {
+    monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(totalPlanLeadsValue);
+    monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(totalFactLeadsValue);
+    Logger.log('Записаны "Лиды": План = ' + totalPlanLeadsValue + ', Факт = ' + totalFactLeadsValue);
+  }
+
+  // Запись "Лиды Чистые"
+  var cleanLeadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+  if (cleanLeadsTargetCell) {
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 6).setValue(leadCleanPlan);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 7).setValue(leadCleanFact);
+    Logger.log('Записаны "Лиды Чистые": План = ' + leadCleanPlan + ', Факт = ' + leadCleanFact);
+  }
+
+  // Запись "Сделки"
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  if (dealsTargetCell) {
+    monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(dealsPlanValue);
+    monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(dealsFactValue);
+    Logger.log('Записаны "Сделки": План = ' + dealsPlanValue + ', Факт = ' + dealsFactValue);
+  }
+
+  // Запись "Выручка"
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  if (revenueTargetCell) {
+    monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(revenuePlanValue);
+    monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(revenueFactValue);
+    Logger.log('Записаны "Выручка": План = ' + revenuePlanValue + ', Факт = ' + revenueFactValue);
+  }
+
+  Logger.log('--- ОБНОВЛЕНИЕ ЗАВЕРШЕНО ---');
+}
+
+
+function update2GISData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('--- НАЧАЛО ОБНОВЛЕНИЯ ДАННЫХ 2GIS ---');
+
+  if (!calculationSheet) {
+    Logger.log('Ошибка: Лист "Расчеты" не найден.');
+    return;
+  }
+
+  // Получение месяца и года
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+  Logger.log('Формируем название листа: ' + sheetName);
+
+  var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+  if (!guestSheet) {
+    Logger.log('Ошибка: Лист "Карты, постоян.гости" не найден.');
+    return;
+  }
+
+  // Ищем строку "2 гис <Месяц>"
+  var searchPattern = '2 гис ' + selectedMonth;
+  var gisCell = findCellByValue(guestSheet, searchPattern);
+  if (!gisCell) {
+    Logger.log('Ошибка: Не найдена строка "' + searchPattern + '" в "Карты, постоян.гости".');
+    return;
+  }
+  var row = gisCell.getRow();
+  Logger.log('Найдена строка: "' + searchPattern + '" на строке ' + row);
+
+  // Найти нужные строки
+  var leadsCell = findCellByValueInColumn(guestSheet, 'Лиды', 'A', row);
+  var leadCleanCell = findCellByValueInColumn(guestSheet, 'Лиды Чистые', 'A', row);
+  var dealCell = findCellByValueInColumn(guestSheet, 'Сделка', 'A', row);
+  var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', row);
+
+  Logger.log('Результат поиска строк:');
+  Logger.log('Лиды: ' + (leadsCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Лиды Чистые: ' + (leadCleanCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Сделка: ' + (dealCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+  Logger.log('Выручка: ' + (revenueCell ? 'НАЙДЕНЫ' : 'НЕ НАЙДЕНЫ'));
+
+  var leadsPlanValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 2).getValue() || 0 : 0;
+  var totalPlanLeadsValue = leadsPlanValue;
+  var leadsFactValue = leadsCell ? guestSheet.getRange(leadsCell.getRow(), 3).getValue() || 0 : 0;
+  var totalFactLeadsValue = leadsFactValue;
+
+  var leadCleanPlan = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 2).getValue() || 0 : 0;
+  var leadCleanFact = leadCleanCell ? guestSheet.getRange(leadCleanCell.getRow(), 3).getValue() || 0 : 0;
+
+  var dealsPlanValue = dealCell ? guestSheet.getRange(dealCell.getRow(), 2).getValue() || 0 : 0;
+  var dealsFactValue = dealCell ? guestSheet.getRange(dealCell.getRow(), 3).getValue() || 0 : 0;
+
+  var revenuePlanValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 2).getValue() || 0 : 0;
+  var revenueFactValue = revenueCell ? guestSheet.getRange(revenueCell.getRow(), 3).getValue() || 0 : 0;
+
+  // Лист "ЯНВАРЬ 25"
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (!monthSheet) {
+    Logger.log('Ошибка: Лист "' + sheetName + '" не найден.');
+    return;
+  }
+  Logger.log('Лист месяца "' + sheetName + '" найден.');
+
+  // Найти "2 гис" в столбце E
+  var gisTargetCell = findCellByValueInColumn(monthSheet, '2 гис', 'E');
+  if (!gisTargetCell) {
+    Logger.log('Ошибка: Не найдена строка "2 гис" в "' + sheetName + '".');
+    return;
+  }
+  var targetRow = gisTargetCell.getRow();
+  Logger.log('Найдена строка "2 гис" на строке ' + targetRow);
+
+  // Запись "Лиды"
+  var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+  if (leadsTargetCell) {
+    monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(totalPlanLeadsValue);
+    monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(totalFactLeadsValue);
+    Logger.log('Записаны "Лиды": План = ' + totalPlanLeadsValue + ', Факт = ' + totalFactLeadsValue);
+  }
+
+  // Запись "Лиды Чистые"
+  var cleanLeadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды Чистые', 'E', targetRow);
+  if (cleanLeadsTargetCell) {
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 6).setValue(leadCleanPlan);
+    monthSheet.getRange(cleanLeadsTargetCell.getRow(), 7).setValue(leadCleanFact);
+    Logger.log('Записаны "Лиды Чистые": План = ' + leadCleanPlan + ', Факт = ' + leadCleanFact);
+  }
+
+  // Запись "Сделки"
+  var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+  if (dealsTargetCell) {
+    monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(dealsPlanValue);
+    monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(dealsFactValue);
+    Logger.log('Записаны "Сделки": План = ' + dealsPlanValue + ', Факт = ' + dealsFactValue);
+  }
+
+  // Запись "Выручка"
+  var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+  if (revenueTargetCell) {
+    monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(revenuePlanValue);
+    monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(revenueFactValue);
+    Logger.log('Записаны "Выручка": План = ' + revenuePlanValue + ', Факт = ' + revenueFactValue);
+  }
+
+  Logger.log('--- ОБНОВЛЕНИЕ ЗАВЕРШЕНО ---');
+}
+
+
+
+function findCurrentMonthAllLeads() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Получаем листы
+  var calculationsSheet = ss.getSheetByName("Расчеты");
+  var guestsSheet = ss.getSheetByName("Карты, постоян.гости");
+
+  if (!calculationsSheet || !guestsSheet) {
+    Logger.log("Ошибка: Один из листов не найден.");
+    return;
+  }
+
+  // Получаем выбранный месяц и год из H2 и F2 на листе "Расчеты"
+  var selectedMonth = calculationsSheet.getRange("H2").getValue().trim();
+  var selectedYear = calculationsSheet.getRange("F2").getValue().toString().trim();
+
+  // Преобразуем месяц с первой заглавной буквой
+  selectedMonth = capitalizeFirstLetter(selectedMonth);
+
+  // Формируем строки поиска для текущего месяца
+  var searchTextAllLeads = selectedMonth + " все лиды";
+  var searchTextCleanLeads = selectedMonth + " чистые лиды";
+
+  // Получаем данные из столбцов A и B листа "Карты, постоян.гости"
+  var columnA = guestsSheet.getRange("A:A").getValues().flat();
+  var columnB = guestsSheet.getRange("B:B").getValues().flat();
+
+  // Ищем строку с нужным текстом в столбце A для "все лиды"
+  var foundAllLeads = false;
+  for (var i = 0; i < columnA.length; i++) {
+    if (columnA[i].toString().trim() === searchTextAllLeads) {
+      var resultAllLeads = columnB[i];
+      Logger.log("Найдено: " + searchTextAllLeads + " в строке " + (i + 1) + ". Значение в B: " + resultAllLeads);
+
+      // Записываем найденное значение в B110 на листе "Расчеты" через вспомогательную функцию
+      setValue(calculationsSheet, "mapsGuestAllLeadCurr", resultAllLeads || 0); // Записываем 0, если значение пустое
+      foundAllLeads = true;
+      break;
+    }
+  }
+  if (!foundAllLeads) {
+    Logger.log("Текст '" + searchTextAllLeads + "' не найден в столбце A.");
+    setValue(calculationsSheet, "mapsGuestAllLeadCurr", "Нет данных");
+  }
+
+  // Ищем строку с нужным текстом в столбце A для "чистые лиды"
+  var foundCleanLeads = false;
+  for (var j = 0; j < columnA.length; j++) {
+    if (columnA[j].toString().trim() === searchTextCleanLeads) {
+      var resultCleanLeads = columnB[j];
+      Logger.log("Найдено: " + searchTextCleanLeads + " в строке " + (j + 1) + ". Значение в B: " + resultCleanLeads);
+
+      // Записываем найденное значение в B114 на листе "Расчеты" через вспомогательную функцию
+      setValue(calculationsSheet, "mapsGuestCleanLeadCurr", resultCleanLeads || 0); // Записываем 0, если значение пустое
+      foundCleanLeads = true;
+      break;
+    }
+  }
+  if (!foundCleanLeads) {
+    Logger.log("Текст '" + searchTextCleanLeads + "' не найден в столбце A.");
+    setValue(calculationsSheet, "mapsGuestCleanLeadCurr", "Нет данных");
+  }
+}

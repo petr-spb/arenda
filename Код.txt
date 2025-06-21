@@ -1,0 +1,1326 @@
+//Код.gs
+
+var CellselectedMonth = 'H2';
+var CellSelectedYear = 'F2';
+var CellAverageCheckNana = 'F28';
+var CellFactAverageCheckNana = 'AG39'
+
+var CellAverageCheckSasha = 'F15';
+var CellFactAverageCheckSasha = 'AG81'
+
+var totalRevenueG = 'G145'
+
+/*
+
+Менеджеров с Апреля 2025 года менял местами на листах Личные продажи 04.2025
+
+*/
+
+var numberOfApartments = 33;
+
+
+
+
+// Основной функционал
+
+function updateCalculationSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек CellselectedMonth и CellSelectedYear на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+
+  // Преобразуем месяц в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+
+  // Формируем название листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа для основной функции: ' + sheetName);
+
+  
+
+  // Функция для отображения оставшихся дней до конца месяца
+  updateDaysLeftInMonth()
+
+  /**
+ * Функция для получения данных о загрузке квартир в процентах за период от первого числа до текущего числа
+ * за выбранный месяц и предыдущий месяц
+ */
+  //Функция для отображения данных воронки за выбранный период
+  fetchDataFromYandexFunnel()
+  //Функция для отображения данных воронки за выбранный период
+  fetchDataFromCianFunnel()
+  //Функция для отображения всех лидов за текущий месяц
+  findCurrentMonthAllLeads()
+  // Функция для обновления общего NPS без месяцев
+  calculateNPSRatings()
+  displayMaidRatingsByMonth()
+  
+  calculateNPSByMonth()
+  displayMaidRatings()
+  getOccupancyRatesForCurrentAndPreviousMonth()
+  // Функция для получения данных для диаграммы сравнения NPS
+  NPSDiag()
+  // Обновление данных из листов за последние 6 месяцев
+  updateDataFromMonthSheets();
+  // процент пропущенных звонков
+  updateMissedCalls()
+  // получение количества проверенных уборок по периоду
+  updateCleaningData()
+  // Функция для получения всех лидов прошлого месяца с листа Карты, постоянные гости
+  findPreviousMonthAllLeads()
+  // Функция получает и записывает данные по общей выручке с прошлого периода
+  totalRevenueLastMonth()
+  // Вызов функции для вывода среднего чека
+  updateAverageCheckData();
+  // Функция для вывода Процента выполненных поломок
+  updateBreakdownsCompleted()
+  // Функция для вывода Выручка по менеджерам
+  updateManagerRevenueData();
+  // Функция для вывода Конверсия в продажу
+  updateConversionData();
+  // Получение данных за предыдущий месяц
+  updateCalculationSheetLastMonth();
+  // Функция для отображения данных с воронки (яндекс)
+  updateDataFromYandexFunnel();
+  //// Функция для отображения данных с воронки (циан)
+  updateDataFromCianFunnel()
+  // Получение данны по комиссиям от коллег
+  updateSalesSheetCommissions()
+  // Функция для получения значений количества сданных квартир выбранного и прошлого периода
+  updateRentedFlatsCount()
+  // Функция для отображения данных из листа Карты, постоян.гости - Гугл карты
+  updateGoogleMapsData()
+  // Функция для получения с Телеграмм канала
+  updateTelegramChannelData()
+  // Функция для обработки постоянных гостей
+  updateRegularGuestsData()
+  // Функция для расчета среднего чека за предыдущий месяц
+  calculatePreviousMonthAverageCheck()
+  // Функция для записи общих средних данных на лист "Расчеты"
+  updateAverageCalculationSheet()
+  // Запись общей выручки на лист МЕСЯЦ ГГ
+  totalRevenue()
+  // Запись на лист Расчеты средних чеков за неделю
+  compareWeeklyAverages()
+  // Запись данных мз Яндекс карты
+  updateYandexMapsData()
+  // Запись данных из ВК Групп Лист Карты, постоянные гости
+  updateVKGroupData()
+  // Функция для получения данных с 2Гис
+  update2GISData()
+  // Функция для записи продлений по часам
+  updateSalesSheetHoursExtension()
+  // Функция для записи данных менеджеров в отчетных документах
+  updateManagerReportData()
+  // Функция для записи NPS относительно выбранного месяца.
+  calculateAndDisplayNPS()
+  // Пропущенных звонки от проживающих
+
+
+
+  // 1:1 Загрузка в процентах
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (monthSheet) {
+    // 1.1 Копируем значение из ячейки G51 на листе месяца
+    var ValueFromG51 = getValue(monthSheet, 'G51'); // fact
+    var ValueFromF51 = getValue(monthSheet, 'F51'); // plan
+    Logger.log('Значение из ячейки G51 на листе "' + sheetName + '": ' + ValueFromG51);
+    Logger.log('Значение из ячейки F51 на листе "' + sheetName + '": ' + ValueFromF51);
+
+    // Вставляем это значение на лист "Расчеты" в ячейку C5
+    setValue(calculationSheet, 'C5', ValueFromG51); // fact
+    setValue(calculationSheet, 'B5', ValueFromF51); // plan
+    Logger.log('Загрузка в процентах вставлено в ячейку C5 на листе "Расчеты".');
+    Logger.log('Загрузка в процентах вставлено в ячейку B5 на листе "Расчеты".');
+
+    // 1:2 Бюджет на рекламу
+    var ValueFromG139 = getValue(monthSheet, 'G139'); // fact
+    var ValueFromF139 = getValue(monthSheet, 'F139'); // plan
+    Logger.log('Значение из ячейки G139 на листе "' + sheetName + '": ' + ValueFromG139);
+
+    setValue(calculationSheet, 'C6', ValueFromG139); // fact
+    setValue(calculationSheet, 'B6', ValueFromF139); // plan
+    Logger.log('Бюджет на рекламу вставлено в ячейку C6 на листе "Расчеты".');
+    Logger.log('Бюджет на рекламу вставлено в ячейку B6 на листе "Расчеты".');
+
+    // 1:3 Все лиды
+    var ValueFromG135 = getValue(monthSheet, 'G135'); // fact
+    var ValueFromF135 = getValue(monthSheet, 'F135'); // plan
+    Logger.log('Значение из ячейки G135 на листе "' + sheetName + '": ' + ValueFromG135);
+    Logger.log('Значение из ячейки F135 на листе "' + sheetName + '": ' + ValueFromF135);
+
+    setValue(calculationSheet, 'C7', ValueFromG135);
+    setValue(calculationSheet, 'B7', ValueFromF135);
+    Logger.log('Все лиды вставлено в ячейку C7 на листе "Расчеты".');
+
+    // 1:4 Чистые лиды
+    var ValueFromG136 = getValue(monthSheet, 'G136');
+    var ValueFromF136 = getValue(monthSheet, 'F136');
+    Logger.log('Значение из ячейки G136 на листе "' + sheetName + '": ' + ValueFromG136);
+
+    setValue(calculationSheet, 'C8', ValueFromG136);
+    setValue(calculationSheet, 'B8', ValueFromF136);
+    Logger.log('Чистые лиды вставлено в ячейку C8 на листе "Расчеты".');
+
+    // 1:5 Стоимость грязного лида
+    var ValueFromG137 = getValue(monthSheet, 'G137');
+    var ValueFromF137 = getValue(monthSheet, 'F137');
+    Logger.log('Значение из ячейки G137 на листе "' + sheetName + '": ' + ValueFromG137);
+
+    setValue(calculationSheet, 'C9', ValueFromG137);
+    setValue(calculationSheet, 'B9', ValueFromF137);
+    Logger.log('Стоимость грязного лида вставлено в ячейку C9 на листе "Расчеты".');
+
+    // 1:6 Стоимость чистого лида
+    var ValueFromG138 = getValue(monthSheet, 'G138');
+    var ValueFromF138 = getValue(monthSheet, 'F138');
+    Logger.log('Значение из ячейки G138 на листе "' + sheetName + '": ' + ValueFromG138);
+
+    setValue(calculationSheet, 'C10', ValueFromG138);
+    setValue(calculationSheet, 'B10', ValueFromF138);
+    Logger.log('Стоимость чистого лида вставлено в ячейку C10 на листе "Расчеты".');
+
+    // 2:1 ROMI
+    var ValueFromJ8 = getValue(monthSheet, 'J8');
+    Logger.log('Значение из ячейки J8 на листе "' + sheetName + '": ' + ValueFromJ8);
+
+    setValue(calculationSheet, 'C11', ValueFromJ8);
+    Logger.log('ROMI вставлено в ячейку C11 на листе "Расчеты".');
+
+    // 2:2 Выручка общая
+    var ValueFromG145 = getValue(monthSheet, totalRevenueG);
+    var ValueFromF145 = getValue(monthSheet, 'F145');
+    Logger.log('Значение из ячейки G145 на листе "' + sheetName + '": ' + ValueFromG145 + 'gg');
+
+    setValue(calculationSheet, 'C12', ValueFromG145);
+    setValue(calculationSheet, 'B12', ValueFromF145);
+    Logger.log('Выручка общая вставлено в ячейку C12 на листе "Расчеты".');
+
+    // 2:3 NPS 1 (уборка)
+    var ValueFromG147 = getValue(monthSheet, 'G147');
+    var ValueFromF147 = getValue(monthSheet, 'F147');
+    Logger.log('Значение из ячейки G147 на листе "' + sheetName + '": ' + ValueFromG147);
+
+    setValue(calculationSheet, 'C13', Math.round(ValueFromG147 * 100) / 100);
+    setValue(calculationSheet, 'B13', ValueFromF147);
+    Logger.log('NPS 1 (уборка)) вставлено в ячейку C13 на листе "Расчеты".');
+
+    // 2:4 NPS 2 (объект)
+    var ValueFromG148 = getValue(monthSheet, 'G148');
+    var ValueFromF148 = getValue(monthSheet, 'F148');
+    Logger.log('Значение из ячейки G148 на листе "' + sheetName + '": ' + ValueFromG148);
+
+    setValue(calculationSheet, 'C14', Math.round(ValueFromG148*100) / 100);
+    setValue(calculationSheet, 'B14', ValueFromF148);
+    Logger.log('NPS 2 (объект) вставлено в ячейку C14 на листе "Расчеты".');
+
+    // 2:3 NPS 3 (выезд)
+    var ValueFromG154 = getValue(monthSheet, 'G154');
+    var ValueFromF154 = getValue(monthSheet, 'F154');
+    Logger.log('Значение из ячейки G154 на листе "' + sheetName + '": ' + ValueFromG154);
+
+    setValue(calculationSheet, 'C17', Math.round(ValueFromG154*100) / 100);
+    setValue(calculationSheet, 'B17', ValueFromF154);
+    Logger.log('NPS 3 (выезд) вставлено в ячейку C14 на листе "Расчеты".');
+
+    // 2:5 Количество проверенных уборок
+    var ValueFromG151 = getValue(monthSheet, 'G151');
+    var ValueFromF151 = getValue(monthSheet, 'F151');
+    Logger.log('Значение из ячейки G151 на листе "' + sheetName + '": ' + ValueFromG151);
+
+    setValue(calculationSheet, 'C15', ValueFromG151);
+    setValue(calculationSheet, 'B15', ValueFromF151);
+    Logger.log('Количество проверенных уборок вставлено в ячейку C15 на листе "Расчеты".');
+
+    // 2:6 % выполненных поломок
+    var ValueFromG152 = getValue(monthSheet, 'G152');
+    var ValueFromF152 = getValue(monthSheet, 'F152');
+    Logger.log('Значение из ячейки G152 на листе "' + sheetName + '": ' + ValueFromG152);
+
+    setValue(calculationSheet, 'C16', ValueFromG152);
+    setValue(calculationSheet, 'B16', ValueFromF152);
+    Logger.log('% выполненных поломок вставлено в ячейку C16 на листе "Расчеты".');
+
+    // Данные Бронирования OTA табличка
+    var ValuesFromF118_F131 = monthSheet.getRange('F118:F131').getValues(); // plan
+    var ValuesFromG118_G131 = monthSheet.getRange('G118:G131').getValues(); // fact
+    var ValuesFromG118_G131 = monthSheet.getRange('G118:G131').getValues(); // fact
+    Logger.log('Значения из ячеек F118:F131 на листе "' + sheetName + '": ' + ValuesFromF118_F131);
+    Logger.log('Значения из ячеек G118:G131 на листе "' + sheetName + '": ' + ValuesFromG118_G131);
+
+    calculationSheet.getRange('N6:N19').setValues(ValuesFromF118_F131); // plan
+    calculationSheet.getRange('O6:O19').setValues(ValuesFromG118_G131); // fact
+    Logger.log('План работ вставлено в диапазон N6:N19 на листе "Расчеты".');
+    Logger.log('Фактические данные вставлено в диапазон O6:O19 на листе "Расчеты".');
+
+    
+
+
+  // Данные Из Других источников
+    var ValuesFromG209_H223 = monthSheet.getRange('G209:G224').getValues(); // источники
+    var ValuesFromAN209_AN223 = monthSheet.getRange('AN209:AN224').getValues(); // значение
+    var ValuesFromAO209_AO223 = monthSheet.getRange('AO209:AO224').getValues(); // проценты
+    Logger.log('Значения из ячеек F118:F131 на листе "' + sheetName + '": ' + ValuesFromG209_H223);
+    Logger.log('Значения из ячеек G118:G131 на листе "' + sheetName + '": ' + ValuesFromAN209_AN223);
+    Logger.log('Значения из ячеек G118:G131 на листе "' + sheetName + '": ' + ValuesFromAO209_AO223);
+
+    calculationSheet.getRange('AA4:AA19').setValues(ValuesFromG209_H223); // источники
+    calculationSheet.getRange('AB4:AB19').setValues(ValuesFromAN209_AN223); // значение
+    calculationSheet.getRange('AC4:AC19').setValues(ValuesFromAO209_AO223); // проценты
+    Logger.log('План работ вставлено в диапазон N6:N19 на листе "Расчеты".');
+    Logger.log('Фактические данные вставлено в диапазон O6:O19 на листе "Расчеты".');
+
+
+    
+
+    //Средний чек общий
+    var ValueFromG143 = getValue(monthSheet, 'G143');
+    var ValueFromF143 = getValue(monthSheet, 'F143');
+
+    setValue(calculationSheet, 'C18', ValueFromG143);
+    setValue(calculationSheet, 'B18', ValueFromF143);
+
+    var OTA_Plan = getValue(monthSheet, 'F117');
+    var OTA_Fact = getValue(monthSheet, 'G117');
+    var OTA_Percent = getValue(monthSheet, 'H117')
+    var OTA_Fact_Period = getValue(monthSheet, 'AP117')
+    setValue (calculationSheet, 'OTA_plan', OTA_Plan);
+    setValue (calculationSheet, 'OTA_fact', OTA_Fact);
+    setValue (calculationSheet, 'D19', OTA_Percent);
+    setValue(calculationSheet, 'OTA_CurrPeriod', OTA_Fact_Period);
+  }
+}
+
+
+
+//Данные для диаграммы Сравнение всех Лидов с чистыми за 6 месяцев
+function updateDataFromMonthSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем список всех листов в таблице
+  var sheets = ss.getSheets();
+  var monthSheets = [];
+
+  // Фильтруем листы, оставляя только те, которые соответствуют формату "МЕСЯЦ ГГ"
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    if (/^[А-ЯЁ]{2,}\s\d{2}$/.test(sheetName)) { // Проверяем формат "МЕСЯЦ ГГ"
+      Logger.log('Найден лист: ' + sheetName);
+      monthSheets.push(sheetName);
+    }
+  }
+
+  Logger.log('Листы, соответствующие формату "МЕСЯЦ ГГ": ' + monthSheets.join(', '));
+
+  // Сортировка месяцев в хронологическом порядке
+  monthSheets.sort(function(a, b) {
+    var monthsOrder = ["ЯНВАРЬ", "ФЕВРАЛЬ", "МАРТ", "АПРЕЛЬ", "МАЙ", "ИЮНЬ", "ИЮЛЬ", "АВГУСТ", "СЕНТЯБРЬ", "ОКТЯБРЬ", "НОЯБРЬ", "ДЕКАБРЬ"];
+    var [monthA, yearA] = a.split(" ");
+    var [monthB, yearB] = b.split(" ");
+    var yearDiff = parseInt(yearA) - parseInt(yearB);
+    if (yearDiff !== 0) return yearDiff; // Сначала сортируем по году
+    return monthsOrder.indexOf(monthA) - monthsOrder.indexOf(monthB); // Затем по месяцу
+  });
+
+  // Ограничиваем массив последними 6 месяцами
+  if (monthSheets.length > 6) {
+    monthSheets = monthSheets.slice(-6); // Берем последние 6 элементов
+  }
+
+  Logger.log('Отобранные последние 6 месяцев: ' + monthSheets.join(', '));
+
+  // Вставляем названия листов и данные в столбцы R, S, T и V, W
+  for (var i = 0; i < monthSheets.length; i++) {
+    var sheetName = monthSheets[i];
+    var monthSheet = ss.getSheetByName(sheetName);
+
+    if (monthSheet) {
+      // Получаем данные из ячеек F135 и G135 Все лиды
+      var planValueAll = getValue(monthSheet, 'F135'); // План
+      var factValueAll = getValue(monthSheet, 'G135'); // Факт
+
+      Logger.log('Лист "' + sheetName + '": План (F135) = ' + planValueAll + ', Факт (G135) = ' + factValueAll);
+
+      // Вставляем название листа в столбец R
+      setValue(calculationSheet, 'R' + (5 + i), sheetName);
+      Logger.log('Название листа "' + sheetName + '" вставлено в ячейку R' + (5 + i));
+
+      // Вставляем данные в столбцы S и T
+      setValue(calculationSheet, 'S' + (5 + i), planValueAll); // План
+      setValue(calculationSheet, 'T' + (5 + i), factValueAll); // Факт
+      Logger.log('План (S' + (5 + i) + ') = ' + planValueAll + ', Факт (T' + (5 + i) + ') = ' + factValueAll + ' вставлены в ячейки');
+
+      // Получаем данные из ячеек F136 и G136 Грязные лиды
+      var planValueClean = getValue(monthSheet, 'F136'); // План чистые лиды
+      var factValueClean = getValue(monthSheet, 'G136'); // Факт чистые лиды
+
+      // Вставляем название листа в столбец R
+      setValue(calculationSheet, 'V' + (5 + i), sheetName);
+      Logger.log('Название листа "' + sheetName + '" вставлено в ячейку R' + (5 + i));
+
+      Logger.log('Лист "' + sheetName + '": План чистые лиды (F136) = ' + planValueClean + ', Факт чистые лиды (G136) = ' + factValueClean);
+
+      // Вставляем данные в столбцы V и W
+      setValue(calculationSheet, 'W' + (5 + i), planValueClean); // План чистые лиды
+      setValue(calculationSheet, 'X' + (5 + i), factValueClean); // Факт чистые лиды
+      Logger.log('План чистые лиды (V' + (5 + i) + ') = ' + planValueClean + ', Факт чистые лиды (W' + (5 + i) + ') = ' + factValueClean + ' вставлены в ячейки');
+    } else {
+      Logger.log('Лист с названием "' + sheetName + '" не найден!');
+      setValue(calculationSheet, 'R' + (5 + i), sheetName); // Название листа
+      setValue(calculationSheet, 'S' + (5 + i), 'Нет данных'); // Если лист отсутствует
+      setValue(calculationSheet, 'T' + (5 + i), 'Нет данных');
+      setValue(calculationSheet, 'V' + (5 + i), sheetName);
+      setValue(calculationSheet, 'W' + (5 + i), 'Нет данных');
+      setValue(calculationSheet, 'X' + (5 + i), 'Нет данных');
+      Logger.log('Нет данных для листа "' + sheetName + '"');
+    }
+  }
+}
+
+function updateCalculationSheetLastMonth() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек CellselectedMonth и CellSelectedYear на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+
+  // Преобразуем месяц в заглавные буквы и получаем предыдущий месяц
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var monthUpperCase = convertMonthToUpperCase(previousMonthData.month, CellselectedMonth);
+  var shortYear = previousMonthData.year.toString().slice(-2); // Последние две цифры года
+
+  // Формируем название листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + shortYear;
+  Logger.log('Формируем название листа предыдущего месяца: ' + sheetName);
+
+  // Получаем лист предыдущего месяца
+  var monthSheet = ss.getSheetByName(sheetName);
+  if (monthSheet) {
+    // 1:1 Загрузка в процентах
+    var ValueFromG51 = getValue(monthSheet, 'G51'); // fact
+    var ValueFromF51 = getValue(monthSheet, 'F51'); // plan
+    Logger.log('Значение из ячейки G51 на листе "' + sheetName + '": ' + ValueFromG51);
+    Logger.log('Значение из ячейки F51 на листе "' + sheetName + '": ' + ValueFromF51);
+
+    // Вставляем это значение на лист "Расчеты" в ячейку C21 (со сдвигом на 16 строк)
+    setValue(calculationSheet, 'C26', ValueFromG51); // fact
+    setValue(calculationSheet, 'B26', ValueFromF51); // plan
+    Logger.log('Загрузка в процентах вставлено в ячейку C21 на листе "Расчеты".');
+    Logger.log('Загрузка в процентах вставлено в ячейку B21 на листе "Расчеты".');
+
+    // 1:2 Бюджет на рекламу
+    var ValueFromG139 = getValue(monthSheet, 'G139'); // fact
+    var ValueFromF139 = getValue(monthSheet, 'F139'); // plan
+    Logger.log('Значение из ячейки G139 на листе "' + sheetName + '": ' + ValueFromG139);
+
+    setValue(calculationSheet, 'C27', ValueFromG139); // fact
+    setValue(calculationSheet, 'B27', ValueFromF139); // plan
+    Logger.log('Бюджет на рекламу вставлено в ячейку C22 на листе "Расчеты".');
+    Logger.log('Бюджет на рекламу вставлено в ячейку B22 на листе "Расчеты".');
+
+    // 1:3 Все лиды
+    var ValueFromG135 = getValue(monthSheet, 'G135'); // fact
+    var ValueFromF135 = getValue(monthSheet, 'F135'); // plan
+    Logger.log('Значение из ячейки G135 на листе "' + sheetName + '": ' + ValueFromG135);
+    Logger.log('Значение из ячейки F135 на листе "' + sheetName + '": ' + ValueFromF135);
+
+    setValue(calculationSheet, 'C28', ValueFromG135);
+    setValue(calculationSheet, 'B28', ValueFromF135);
+    Logger.log('Все лиды вставлено в ячейку C23 на листе "Расчеты".');
+
+    // 1:4 Чистые лиды
+    var ValueFromG136 = getValue(monthSheet, 'G136');
+    var ValueFromF136 = getValue(monthSheet, 'F136');
+    Logger.log('Значение из ячейки G135 на листе "' + sheetName + '": ' + ValueFromG136);
+
+    setValue(calculationSheet, 'C29', ValueFromG136);
+    setValue(calculationSheet, 'B29', ValueFromF136);
+    Logger.log('Чистые лиды вставлено в ячейку C24 на листе "Расчеты".');
+
+    // 1:5 Стоимость грязного лида
+    var ValueFromG137 = getValue(monthSheet, 'G137');
+    var ValueFromF137 = getValue(monthSheet, 'F137');
+    Logger.log('Значение из ячейки G136 на листе "' + sheetName + '": ' + ValueFromG137);
+
+    setValue(calculationSheet, 'C30', ValueFromG137);
+    setValue(calculationSheet, 'B30', ValueFromF137);
+    Logger.log('Стоимость грязного лида вставлено в ячейку C25 на листе "Расчеты".');
+
+    // 1:6 Стоимость чистого лида
+    var ValueFromG138 = getValue(monthSheet, 'G138');
+    var ValueFromF138 = getValue(monthSheet, 'F138');
+    Logger.log('Значение из ячейки G138 на листе "' + sheetName + '": ' + ValueFromG138);
+
+    setValue(calculationSheet, 'C31', ValueFromG138);
+    setValue(calculationSheet, 'B31', ValueFromF138);
+    Logger.log('Стоимость чистого лида вставлено в ячейку C26 на листе "Расчеты".');
+
+    // 2:1 ROMI
+    var ValueFromJ8 = getValue(monthSheet, 'J8');
+    Logger.log('Значение из ячейки J8 на листе "' + sheetName + '": ' + ValueFromJ8);
+
+    setValue(calculationSheet, 'C32', ValueFromJ8);
+    Logger.log('ROMI вставлено в ячейку C27 на листе "Расчеты".');
+
+    // 2:2 Выручка общая
+    var ValueFromG145 = getValue(monthSheet, totalRevenueG);
+    var ValueFromF145 = getValue(monthSheet, 'F145');
+    Logger.log('Значение из ячейки G145 и F145 на листах "' + sheetName + '": ' + ValueFromG145 + ' и ' + ValueFromF145);
+
+    setValue(calculationSheet, 'C33', ValueFromG145);
+    setValue(calculationSheet, 'B33', ValueFromF145);
+    Logger.log('Выручка общая вставлено в ячейку C28 на листе "Расчеты".');
+
+    // 2:3 NPS 1 (уборка)
+    var ValueFromG147 = getValue(monthSheet, 'G147');
+    var ValueFromF147 = getValue(monthSheet, 'F147');
+    Logger.log('Значение из ячейки G147 на листе "' + sheetName + '": ' + ValueFromG147);
+
+    setValue(calculationSheet, 'C34', ValueFromG147);
+    setValue(calculationSheet, 'B34', ValueFromF147);
+    Logger.log('NPS 1 (уборка) вставлено в ячейку C29 на листе "Расчеты".');
+
+    // 2:4 NPS 2 (объект)
+    var ValueFromG148 = getValue(monthSheet, 'G148');
+    var ValueFromF148 = getValue(monthSheet, 'F148');
+    Logger.log('Значение из ячейки G148 на листе "' + sheetName + '": ' + ValueFromG148);
+
+    setValue(calculationSheet, 'C35', ValueFromG148);
+    setValue(calculationSheet, 'B35', ValueFromF148);
+    Logger.log('NPS 2 (объект) вставлено в ячейку C30 на листе "Расчеты".');
+
+    // 2:4 NPS 3 (выезд)
+    var ValueFromG154 = getValue(monthSheet, 'G154');
+    var ValueFromF154 = getValue(monthSheet, 'F154');
+    Logger.log('Значение из ячейки G154 на листе "' + sheetName + '": ' + ValueFromG154);
+
+    setValue(calculationSheet, 'C38', ValueFromG154);
+    setValue(calculationSheet, 'B38', ValueFromF154);
+    Logger.log('NPS 3 (выезд) вставлено в ячейку C30 на листе "Расчеты".');
+
+    // 2:5 Количество проверенных уборок
+    var ValueFromG151 = getValue(monthSheet, 'G151');
+    var ValueFromF151 = getValue(monthSheet, 'F151');
+    Logger.log('Значение из ячейки G151 на листе "' + sheetName + '": ' + ValueFromG151);
+
+    setValue(calculationSheet, 'C36', ValueFromG151);
+    setValue(calculationSheet, 'B36', ValueFromF151);
+    Logger.log('Количество проверенных уборок вставлено в ячейку C31 на листе "Расчеты".');
+
+    // 2:6 % выполненных поломок
+    var ValueFromG152 = getValue(monthSheet, 'G152');
+    var ValueFromF152 = getValue(monthSheet, 'F152');
+    Logger.log('Значение из ячейки G152 на листе "' + sheetName + '": ' + ValueFromG152);
+
+    setValue(calculationSheet, 'C37', ValueFromG152);
+    setValue(calculationSheet, 'B37', ValueFromF152);
+    Logger.log('% выполненных поломок вставлено в ячейку C32 на листе "Расчеты".');
+
+    var OTA_Plan = getValue(monthSheet, 'F117');
+    var OTA_Fact = getValue(monthSheet, 'G117');
+    var OTA_Percent = getValue(monthSheet, 'H117')
+    var OTA_LastPeriod = getValue(monthSheet, 'AP117');
+    setValue (calculationSheet, 'OTA_plan_LastPeriod', OTA_Plan);
+    setValue (calculationSheet, 'OTA_fact_LastPeriod', OTA_Fact);
+    setValue (calculationSheet, 'D38', OTA_Percent);
+    setValue(calculationSheet, 'OTA_LastPeriod', OTA_LastPeriod);
+    Logger.log('Значение бронирования за период прошлого месяца' + OTA_LastPeriod);
+  }
+}
+
+// Обновление дней до конца месяца
+function updateDaysLeftInMonth() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист с выбранным месяцем и годом
+
+  // Получение месяца и года из ячеек CellselectedMonth и CellSelectedYear
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+
+  Logger.log('updateDaysLeftInMonth: Selected month = ' + selectedMonth);
+  Logger.log('updateDaysLeftInMonth: Selected year = ' + selectedYear);
+
+  if (!selectedMonth || !selectedYear) {
+    Logger.log('Месяц или год не указаны.');
+    return;
+  }
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  Logger.log('updateDaysLeftInMonth: Month in uppercase = ' + monthUpperCase);
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('updateDaysLeftInMonth: Sheet name = ' + sheetName);
+
+  var targetSheet = ss.getSheetByName(sheetName); // Лист с названием "ЯНВАРЬ 25" (или другой текущий месяц)
+
+  if (!targetSheet) {
+    Logger.log('Лист "' + sheetName + '" не найден.');
+    return;
+  }
+
+  try {
+    var monthNumber = getMonthNumber(selectedMonth);
+    Logger.log('updateDaysLeftInMonth: Month number = ' + monthNumber);
+  } catch (e) {
+    Logger.log(e.message);
+    return;
+  }
+
+  // Текущая дата
+  var currentDate = new Date();
+  Logger.log('updateDaysLeftInMonth: Current date = ' + currentDate);
+
+  // Конечная дата месяца
+  var endOfMonthDate = new Date(selectedYear, monthNumber, 0); // Последний день месяца
+  Logger.log('updateDaysLeftInMonth: End of month date = ' + endOfMonthDate);
+
+  // Разница в днях между текущей датой и последним днем месяца
+  var daysLeft = Math.ceil((endOfMonthDate - currentDate) / (1000 * 60 * 60 * 24));
+  Logger.log('updateDaysLeftInMonth: Days left = ' + daysLeft);
+
+  // Запись значения в ячейку K1 на целевом листе
+  targetSheet.getRange('K1').setValue(daysLeft);
+  Logger.log('updateDaysLeftInMonth: Days left set in K1');
+}
+
+
+
+
+
+function updateConversionData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения из ячеек CellselectedMonth и CellSelectedYear на листе "Расчеты"
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var selectedYear = getValue(calculationSheet, CellSelectedYear);
+  
+  Logger.log('Выбранный месяц: ' + selectedMonth);
+  Logger.log('Выбранный год: ' + selectedYear);
+
+  // Преобразуем месяц в заглавные буквы
+  var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+  var shortYear = selectedYear.toString().slice(-2); // Последние две цифры года
+
+  // Формируем название листа месяца в формате "МЕСЯЦ ГГ"
+  var monthSheetName = monthUpperCase + ' ' + shortYear;
+  Logger.log('Лист месяца: ' + monthSheetName);
+
+  var monthSheet = ss.getSheetByName(monthSheetName);
+  if (!monthSheet) {
+    Logger.log('Лист месяца не найден: ' + monthSheetName);
+    return;
+  }
+
+  // Нана: Конверсия в продажу
+  var planConversionNana = getValue(monthSheet, 'F34');
+  var factConversionNana = getValue(monthSheet, 'G34');
+  Logger.log('Нана: План конверсии в продажу = ' + planConversionNana);
+  Logger.log('Нана: Факт конверсии в продажу = ' + factConversionNana);
+
+  setValue(calculationSheet, 'K7', planConversionNana);
+  setValue(calculationSheet, 'L7', factConversionNana);
+
+  // Саша: Конверсия в продажу
+  var planConversionSasha = getValue(monthSheet, 'F21');
+  var factConversionSasha = getValue(monthSheet, 'G21');
+  Logger.log('Саша: План конверсии в продажу = ' + planConversionSasha);
+  Logger.log('Саша: Факт конверсии в продажу = ' + factConversionSasha);
+
+  setValue(calculationSheet, 'K8', planConversionSasha);
+  setValue(calculationSheet, 'L8', factConversionSasha);
+
+  Logger.log('Данные конверсии в продажу обновлены на листе "Расчеты".');
+}
+
+
+// Вспомогательная функция для получения предыдущего месяца
+//function getPreviousMonth(month, year) {
+//  var monthNames = ['ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ', 'ИЮЛЬ', 'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ', 'ДЕКАБРЬ'];
+//  var monthIndex = monthNames.indexOf(month.toUpperCase());
+//  if (monthIndex == -1) throw new Error('Неверное название месяца: ' + month);
+
+//  var prevMonthIndex = (monthIndex - 1 + 12) % 12;
+//  var prevYear = monthIndex === 0 ? year - 1 : year;
+
+//  return {
+//    month: monthNames[prevMonthIndex],
+//    year: prevYear
+//  };
+//}
+
+function onOpen() {
+
+  SpreadsheetApp.getUi()
+  .createMenu('Обновить данные')
+  .addItem('Обновить данные', 'updateCalculationSheet')
+  .addToUi();
+
+  SpreadsheetApp.getUi()
+  .createMenu('Обновить лист горничных')
+  .addItem('Обновить данные горничных', 'displayMaidRatingsByMonth')
+  .addToUi();
+
+}
+
+// function onEdit(e) {
+//   // Проверяем, что объект события e существует
+//   if (!e || !e.range) {
+//     Logger.log('Функция вызвана вручную или объект события не существует.');
+//     return; // Выходим, если функция вызвана вручную
+//   }
+
+//   var sheet = e.range.getSheet();
+//   var sheetName = sheet.getName();
+//   var cell = e.range.getA1Notation();
+
+//   Logger.log('Изменение произошло на листе: ' + sheetName);
+//   Logger.log('Измененная ячейка: ' + cell);
+
+//   // Проверяем, что изменение произошло в ячейках CellselectedMonth или CellSelectedYear на листе "Расчеты"
+//   if (sheetName === 'Общий дашборд' && (cell === 'Q2' || cell === 'N2')) {
+//     Logger.log('Изменение произошло в ячейках CellselectedMonth или CellSelectedYear на листе "Расчеты".');
+//     updateCalculationSheet(); // Вызываем основную функцию
+//     Logger.log('Функция updateCalculationSheet вызвана.');
+//   } else {
+//     Logger.log('Изменение произошло не в нужных ячейках или не на листе "Расчеты".');
+//   }
+// }
+
+
+
+function getValue(sheet, cell) {
+  return sheet.getRange(cell).getValue();
+}
+
+function findCellByValue(sheet, value) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    for (var j = 0; j < data[i].length; j++) {
+      if (data[i][j].toString().trim().toUpperCase() === value.toUpperCase()) {
+        return sheet.getRange(i + 1, j + 1);
+      }
+    }
+  }
+  return null;
+}
+
+function findCellByValueInColumn(sheet, value, column, startRow = 1) {
+  var data = sheet.getRange(column + startRow + ':' + column).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0].toString().trim().toUpperCase() === value.toUpperCase()) {
+      return sheet.getRange(startRow + i, column.charCodeAt(0) - 'A'.charCodeAt(0) + 1);
+    }
+  }
+  return null;
+}
+
+function convertMonthToUpperCase(month) {
+  return month.toUpperCase();
+}
+
+
+
+
+
+
+// function updateYandexMapsData() {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var calculationSheet = ss.getSheetByName('Расчеты');
+//   var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+//   var selectedYear = getValue(calculationSheet, CellSelectedYear);
+//   var monthUpperCase = convertMonthToUpperCase(selectedMonth, CellselectedMonth);
+//   var sheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+
+//   Logger.log('Selected month: ' + selectedMonth);
+//   Logger.log('Selected year: ' + selectedYear);
+//   Logger.log('Sheet name: ' + sheetName);
+
+//   // Лист "Карты, постоян.гости"
+//   var guestSheet = ss.getSheetByName('Карты, постоян.гости');
+
+//   if (!guestSheet) {
+//     Logger.log('Sheet "Карты, постоян.гости" not found!');
+//     return;
+//   }
+
+//   // Список названий домов, которые нужно учитывать
+//   var targetAddresses = [
+//     'КУЙБЫШЕВА 109А ЖК МЕЛАНЖ',
+//     'РЕВОЛЮЦИИ 52 ЖК ПРЕМЬЕР',
+//     'РЕВОЛЮЦИИ 52Б',
+//     'РЕВОЛЮЦИИ 52В',
+//     'ФРЕЗЕРОВЩИКОВ'
+//   ];
+
+//   var totalPlanLeads = 0;
+//   var totalFactLeads = 0;
+//   var totalPlanDeals = 0;
+//   var totalFactDeals = 0;
+//   var totalPlanRevenue = 0;
+//   var totalFactRevenue = 0;
+
+//   // Ищем ячейки с "Яндекс карты"
+//   var yandexMapsCells = findCellsByValue(guestSheet, 'Яндекс карты');
+
+//   if (Array.isArray(yandexMapsCells)) {
+//     yandexMapsCells.forEach(function(cell) {
+//       var row = cell.getRow();
+//       var nextRow = row + 1;
+//       var monthCellValue = guestSheet.getRange(nextRow, 1).getValue();
+
+//       // Проверяем, что следующий месяц соответствует выбранному
+//       if (typeof monthCellValue === 'string' && monthCellValue.trim() === selectedMonth.trim()) {
+//         Logger.log("Found month " + selectedMonth + " after 'Яндекс карты' on row " + nextRow);
+
+//         // Начинаем перебор домов
+//         for (var i = 0; i < targetAddresses.length; i++) {
+//           var address = targetAddresses[i];
+//           // Ищем ячейку с названием дома после месяца
+//           var addressCell = findCellByValueInColumn(guestSheet, address, 'A', nextRow + 2); // Начинаем поиск с ячейки после месяца
+//           if (addressCell) {
+//             Logger.log("Found address: " + address + " on row " + addressCell.getRow());
+
+//             // Получаем данные для "Звонок/переписка", "Сайт", "Сделка", "Выручка"
+//             var leadsCell = findCellByValueInColumn(guestSheet, 'Звонок/переписка', 'A', addressCell.getRow());
+//             var siteCell = findCellByValueInColumn(guestSheet, 'Сайт', 'A', addressCell.getRow());
+//             var dealCell = findCellByValueInColumn(guestSheet, 'Сделка', 'A', addressCell.getRow());
+//             var revenueCell = findCellByValueInColumn(guestSheet, 'Выручка', 'A', addressCell.getRow());
+
+//             if (leadsCell) {
+//               totalPlanLeads += guestSheet.getRange(leadsCell.getRow(), 2).getValue();
+//               totalFactLeads += guestSheet.getRange(leadsCell.getRow(), 3).getValue();
+//             }
+//             if (siteCell) {
+//               totalPlanLeads += guestSheet.getRange(siteCell.getRow(), 2).getValue();
+//               totalFactLeads += guestSheet.getRange(siteCell.getRow(), 3).getValue();
+//             }
+//             if (dealCell) {
+//               totalPlanDeals += guestSheet.getRange(dealCell.getRow(), 2).getValue();
+//               totalFactDeals += guestSheet.getRange(dealCell.getRow(), 3).getValue();
+//             }
+//             if (revenueCell) {
+//               totalPlanRevenue += guestSheet.getRange(revenueCell.getRow(), 2).getValue();
+//               totalFactRevenue += guestSheet.getRange(revenueCell.getRow(), 3).getValue();
+//             }
+//           }
+//         }
+//       } else {
+//         Logger.log("The month on row " + nextRow + " (" + monthCellValue + ") does not match the selected month (" + selectedMonth + ").");
+//       }
+//     });
+//   } else {
+//     Logger.log('yandexMapsCells is not an array');
+//   }
+
+//   Logger.log('Total Plan Leads: ' + totalPlanLeads);
+//   Logger.log('Total Fact Leads: ' + totalFactLeads);
+//   Logger.log('Total Plan Deals: ' + totalPlanDeals);
+//   Logger.log('Total Fact Deals: ' + totalFactDeals);
+//   Logger.log('Total Plan Revenue: ' + totalPlanRevenue);
+//   Logger.log('Total Fact Revenue: ' + totalFactRevenue);
+
+//   // Запись данных на лист "МЕСЯЦ ГГ"
+//   var monthSheet = ss.getSheetByName(sheetName);
+//   if (monthSheet) {
+//     var yandexMapsTargetCell = findCellByValueInColumn(monthSheet, 'Яндекс карты', 'E');
+
+//     if (yandexMapsTargetCell) {
+//       var targetRow = yandexMapsTargetCell.getRow();
+
+//       var leadsTargetCell = findCellByValueInColumn(monthSheet, 'Лиды', 'E', targetRow);
+//       var dealsTargetCell = findCellByValueInColumn(monthSheet, 'Сделки', 'E', targetRow);
+//       var revenueTargetCell = findCellByValueInColumn(monthSheet, 'Выручка', 'E', targetRow);
+
+//       if (leadsTargetCell && dealsTargetCell && revenueTargetCell) {
+//         monthSheet.getRange(leadsTargetCell.getRow(), 6).setValue(totalPlanLeads);
+//         monthSheet.getRange(leadsTargetCell.getRow(), 7).setValue(totalFactLeads);
+//         monthSheet.getRange(dealsTargetCell.getRow(), 6).setValue(totalPlanDeals);
+//         monthSheet.getRange(dealsTargetCell.getRow(), 7).setValue(totalFactDeals);
+//         monthSheet.getRange(revenueTargetCell.getRow(), 6).setValue(totalPlanRevenue);
+//         monthSheet.getRange(revenueTargetCell.getRow(), 7).setValue(totalFactRevenue);
+//       } else {
+//         Logger.log('One or more target cells not found in month sheet');
+//       }
+//     } else {
+//       Logger.log('"Яндекс карты" not found in month sheet');
+//     }
+//   } else {
+//     Logger.log('Month sheet "' + sheetName + '" not found!');
+//   }
+// }
+
+
+
+
+
+
+
+
+
+// Функция для записи данных общего среднего чека на лист "Расчеты"
+function updateAverageCalculationSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получаем значения среднего чека за текущий и предыдущий месяц
+  var currentAverageCheck = calculateTotalAverageCheck();
+  var previousAverageCheck = calculatePreviousMonthAverageCheck();
+
+  // Получаем названия текущего и предыдущего месяца
+  var selectedMonth = getValue(calculationSheet, CellselectedMonth);
+  var previousMonthData = getPreviousMonth(selectedMonth, getValue(calculationSheet, CellSelectedYear));
+  var previousMonth = previousMonthData.month;
+
+  // Записываем данные на лист "Расчеты"
+  setValue(calculationSheet, 'H41', selectedMonth.toUpperCase());
+  setValue(calculationSheet, 'H42', previousMonth.toUpperCase());
+  setValue(calculationSheet, 'J41', currentAverageCheck);
+  setValue(calculationSheet, 'J42', previousAverageCheck);
+}
+
+
+
+
+// получение количества проверенных уборок по периоду
+function updateCleaningData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = calculationSheet.getRange('H2').getValue();
+  var selectedYear = calculationSheet.getRange('F2').getValue();
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = selectedMonth.toUpperCase();
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var currentSheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа для текущего месяца: ' + currentSheetName);
+
+  var currentSheet = ss.getSheetByName(currentSheetName); // Лист текущего месяца
+  if (!currentSheet) {
+    Logger.log('Лист "' + currentSheetName + '" не найден.');
+    return;
+  }
+
+  // Вычисление прошлого месяца и года
+  var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+  var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+  var lastYear = lastMonthDate.getFullYear();
+  var lastMonthSheetName = lastMonthName + ' ' + lastYear.toString().slice(-2);
+  Logger.log('Формируем название листа для прошлого месяца: ' + lastMonthSheetName);
+
+  var lastMonthSheet = ss.getSheetByName(lastMonthSheetName); // Лист прошлого месяца
+  if (!lastMonthSheet) {
+    Logger.log('Лист "' + lastMonthSheetName + '" не найден.');
+    return;
+  }
+
+  // Получение данных из ячейки AP83 текущего месяца
+  var currentMonthCleanings = currentSheet.getRange('AP83').getValue();
+  Logger.log('Количество проверенных уборок за текущий месяц: ' + currentMonthCleanings);
+
+  // Запись данных в ячейку B121 на листе "Расчеты"
+  calculationSheet.getRange('verifCleanPeriodCurr').setValue(currentMonthCleanings);
+  // calculationSheet.getRange('B104').setValue(currentMonthCleanings);
+
+  // Получение данных из ячейки AP83 прошлого месяца
+  var lastMonthCleanings = lastMonthSheet.getRange('AP83').getValue();
+  Logger.log('Количество проверенных уборок за прошлый месяц: ' + lastMonthCleanings);
+
+  // Запись данных в ячейку C121 на листе "Расчеты"
+  calculationSheet.getRange('verifCleanPeriodLast').setValue(lastMonthCleanings);
+  // calculationSheet.getRange('C104').setValue(lastMonthCleanings);
+}
+
+// получение Процента выполненных поломок
+function updateBreakdownsCompleted() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты'); // Лист "Расчеты"
+
+  // Получение месяца и года из ячеек H2 и F2
+  var selectedMonth = calculationSheet.getRange('H2').getValue();
+  var selectedYear = calculationSheet.getRange('F2').getValue();
+
+  // Преобразование месяца в заглавные буквы
+  var monthUpperCase = selectedMonth.toUpperCase();
+
+  // Формирование названия листа: "ЯНВАРЬ 25" (месяц + последние две цифры года)
+  var currentSheetName = monthUpperCase + ' ' + selectedYear.toString().slice(-2);
+  Logger.log('Формируем название листа для текущего месяца: ' + currentSheetName);
+
+  var currentSheet = ss.getSheetByName(currentSheetName); // Лист текущего месяца
+  if (!currentSheet) {
+    Logger.log('Лист "' + currentSheetName + '" не найден.');
+    return;
+  }
+
+  // Вычисление прошлого месяца и года
+  var lastMonthDate = new Date(selectedYear, getMonthNumber(selectedMonth) - 2, 1);
+  var lastMonthName = convertMonthToUpperCase(getMonthNameFromDate(lastMonthDate));
+  var lastYear = lastMonthDate.getFullYear();
+  var lastMonthSheetName = lastMonthName + ' ' + lastYear.toString().slice(-2);
+  Logger.log('Формируем название листа для прошлого месяца: ' + lastMonthSheetName);
+
+  var lastMonthSheet = ss.getSheetByName(lastMonthSheetName); // Лист прошлого месяца
+  if (!lastMonthSheet) {
+    Logger.log('Лист "' + lastMonthSheetName + '" не найден.');
+    return;
+  }
+
+
+
+  // Получение данных из ячейки AP86 текущего месяца
+  var breakdownCompleted = currentSheet.getRange('AP86').getValue();
+  Logger.log('Процент выполненных поломок: ' + breakdownCompleted);
+
+  // Запись данных в ячейку B122 на листе "Расчеты"
+  calculationSheet.getRange('breakdownPeriodCurr').setValue(breakdownCompleted);
+
+
+  // Получение данных из ячейки AP86 прошлого месяца
+  var lastMonthBreakdownCompleted = lastMonthSheet.getRange('AP86').getValue();
+  Logger.log('Процент выполненных поломок за прошлый месяц: ' + lastMonthBreakdownCompleted);
+
+  // Запись данных в ячейку C122 на листе "Расчеты"
+  calculationSheet.getRange('breakdownPeriodLast').setValue(lastMonthBreakdownCompleted);
+
+}
+
+function getMonthNameFromDate(date) {
+  var monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  return monthNames[date.getMonth()];
+}
+
+// // Пропущенных звонки от проживающих
+// function updateMissedCalls() {
+//   var ss = SpreadsheetApp.getActiveSpreadsheet();
+//   var calculationSheet = ss.getSheetByName('Расчеты');
+
+//   Logger.log('📌 Запуск updateMissedCalls');
+
+//   // Получаем выбранный месяц и год
+//   var selectedMonth = calculationSheet.getRange('H2').getValue();
+//   var selectedYear = calculationSheet.getRange('F2').getValue();
+  
+//   Logger.log('📌 Выбран месяц: ' + selectedMonth);
+//   Logger.log('📌 Выбран год: ' + selectedYear);
+
+//   // Определяем название текущего листа (например, "ФЕВРАЛЬ 25")
+//   var currentMonthSheetName = selectedMonth.toUpperCase() + ' ' + selectedYear.toString().slice(-2);
+  
+//   // Определяем прошлый месяц и его год
+//   var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+//   var previousMonth = previousMonthData.month;
+//   var previousYear = previousMonthData.year;
+//   var previousMonthSheetName = previousMonth.toUpperCase() + ' ' + previousYear.toString().slice(-2);
+
+//   Logger.log('📌 Лист текущего месяца: ' + currentMonthSheetName);
+//   Logger.log('📌 Лист прошлого месяца: ' + previousMonthSheetName);
+
+//   var currentMonthSheet = ss.getSheetByName(currentMonthSheetName);
+//   var previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+
+//   // Проверяем существование листов
+//   if (!currentMonthSheet) {
+//     Logger.log('❌ Лист за текущий месяц не найден: ' + currentMonthSheetName);
+//     return;
+//   }
+//   if (!previousMonthSheet) {
+//     Logger.log('❌ Лист за прошлый месяц не найден: ' + previousMonthSheetName);
+//     return;
+//   }
+
+//   Logger.log('✅ Оба листа найдены, продолжаем выполнение.');
+
+//   // Получаем данные за текущий месяц по % пропущенным звонкам
+//   var missedCallsCurrent = currentMonthSheet.getRange('F68').getValue(); // отдел продаж
+//   var answeredCallsCurrent = currentMonthSheet.getRange('G69').getValue(); // от проживающих
+
+//   // Получаем данные за прошлый месяц по пропущенным звонкам
+//   var missedCallsPrevious = previousMonthSheet.getRange('F68').getValue();
+//   var answeredCallsPrevious = previousMonthSheet.getRange('G69').getValue();
+
+//   Logger.log('📌 Пропущенные звонки (текущий месяц): ' + missedCallsCurrent);
+//   Logger.log('📌 Отвеченные звонки (текущий месяц): ' + answeredCallsCurrent);
+//   Logger.log('📌 Пропущенные звонки (прошлый месяц): ' + missedCallsPrevious);
+//   Logger.log('📌 Отвеченные звонки (прошлый месяц): ' + answeredCallsPrevious);
+
+//     // Запись названий месяцев в Q40 и R40 изменил на П41 и П42
+//   calculationSheet.getRange('P41').setValue(selectedMonth);
+//   calculationSheet.getRange('P42').setValue(previousMonth);
+
+//   // Запись данных в "Расчеты"
+//   calculationSheet.getRange('Q41').setValue(missedCallsCurrent);
+//   calculationSheet.getRange('R41').setValue(answeredCallsCurrent);
+//   calculationSheet.getRange('Q42').setValue(missedCallsPrevious);
+//   calculationSheet.getRange('R42').setValue(answeredCallsPrevious);
+
+//   Logger.log('✅ Данные успешно записаны.');
+// }
+
+// Пропущенные звонки от проживающих
+function updateMissedCalls() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+
+  Logger.log('📌 Запуск updateMissedCalls');
+
+  // Получаем выбранный месяц и год из листа "Расчеты"
+  var selectedMonth = calculationSheet.getRange('H2').getValue().toString().toUpperCase();
+  var selectedYear = calculationSheet.getRange('F2').getValue().toString();
+
+  Logger.log('📌 Выбран месяц: ' + selectedMonth);
+  Logger.log('📌 Выбран год: ' + selectedYear);
+
+  // Формируем название листа текущего месяца (например, "ФЕВРАЛЬ 25")
+  var currentMonthSheetName = selectedMonth + ' ' + selectedYear.slice(-2);
+
+  // Получаем данные о предыдущем месяце
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = previousMonthData.month.toUpperCase();
+  var previousYear = previousMonthData.year.toString();
+  var previousMonthSheetName = previousMonth + ' ' + previousYear.slice(-2);
+
+  Logger.log('📌 Лист текущего месяца: ' + currentMonthSheetName);
+  Logger.log('📌 Лист прошлого месяца: ' + previousMonthSheetName);
+
+  // Получаем листы текущего и предыдущего месяца
+  var currentMonthSheet = ss.getSheetByName(currentMonthSheetName);
+  var previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+
+  // Проверяем существование листов
+  if (!currentMonthSheet) {
+    Logger.log('❌ Лист за текущий месяц не найден: ' + currentMonthSheetName);
+    SpreadsheetApp.getUi().alert('Ошибка: Лист "' + currentMonthSheetName + '" не найден.');
+    return;
+  }
+  if (!previousMonthSheet) {
+    Logger.log('❌ Лист за прошлый месяц не найден: ' + previousMonthSheetName);
+    SpreadsheetApp.getUi().alert('Ошибка: Лист "' + previousMonthSheetName + '" не найден.');
+    return;
+  }
+
+  Logger.log('✅ Оба листа найдены, продолжаем выполнение.');
+
+  // Получаем данные по отделу продаж текущий месяц
+  var missedCallsSalesDepSasha = currentMonthSheet.getRange('G60').getValue() || 0; // Пропущенные звонки отдел продаж plan
+  var missedCallsSalesDepNata =  currentMonthSheet.getRange('G68').getValue() || 0; // Пропущенные звонки отдел продаж plan
+  // Получаем данные по отделу продаж прошлый месяц
+  var missedCallsSalesDepSashaPM = previousMonthSheet.getRange('G60').getValue() || 0; // Пропущенные звонки отдел продаж plan
+  var missedCallsSalesDepNataPM =  previousMonthSheet.getRange('G68').getValue() || 0;
+
+
+  // Получаем данные от проживающих текущий месяц
+  var missedCallsSalesResidentSasha = currentMonthSheet.getRange('G61').getValue() || 0; // Пропущенные звонки от проживающих fact
+  var missedCallsSalesResidentNata = currentMonthSheet.getRange('G69').getValue() || 0; // Пропущенные звонки от проживающих fact
+
+  // Получаем данные от проживающих за прошлый месяц
+  var missedCallsSalesResidentSashaPM = previousMonthSheet.getRange('G61').getValue() || 0;
+  var missedCallsSalesResidentNataPM = previousMonthSheet.getRange('G69').getValue() || 0;
+
+  // Logger.log('📌 Пропущенные звонки (текущий месяц): ' + missedCallsSalesDepSasha);
+  // Logger.log('📌 Отвеченные звонки (текущий месяц): ' + missedCallsSalesResidentSasha);
+  // Logger.log('📌 Пропущенные звонки (прошлый месяц): ' + missedCallsPrevious);
+  // Logger.log('📌 Отвеченные звонки (прошлый месяц): ' + answeredCallsPrevious);
+
+  // Записываем названия месяцев и данные в лист "Расчеты"
+  calculationSheet.getRange('P41').setValue(selectedMonth);
+  calculationSheet.getRange('P42').setValue(previousMonth);
+  calculationSheet.getRange('P47').setValue(selectedMonth);
+  calculationSheet.getRange('P48').setValue(previousMonth);
+  // выбранный месяц отдел продаж
+  calculationSheet.getRange('Q41').setValue(missedCallsSalesDepSasha);
+  calculationSheet.getRange('R41').setValue(missedCallsSalesDepNata);
+  // прошлый месяц отдел продаж
+  calculationSheet.getRange('Q42').setValue(missedCallsSalesDepSashaPM);
+  calculationSheet.getRange('R42').setValue(missedCallsSalesDepNataPM);
+
+  // выбранный месяц от проживающих
+  calculationSheet.getRange('Q47').setValue(missedCallsSalesResidentSasha);
+  calculationSheet.getRange('R47').setValue(missedCallsSalesResidentNata);
+  // прошлый месяц от проживающих
+  calculationSheet.getRange('Q48').setValue(missedCallsSalesResidentSashaPM);
+  calculationSheet.getRange('R48').setValue(missedCallsSalesResidentNataPM);
+  
+
+  Logger.log('✅ Данные успешно записаны в лист "Расчеты".');
+
+  // Выводим сообщение об успешном выполнении
+  Logger.log('Данные за ' + selectedMonth + ' и ' + previousMonth + ' успешно обновлены.');
+}
+
+// Функция для получения всех лидов прошлого месяца с листа Карты, постоянные гости
+// Функция для получения всех лидов прошлого месяца с листа Карты, постоянные гости
+function findPreviousMonthAllLeads() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Получаем листы
+  var calculationsSheet = ss.getSheetByName("Расчеты");
+  var guestsSheet = ss.getSheetByName("Карты, постоян.гости");
+
+  if (!calculationsSheet || !guestsSheet) {
+    Logger.log("Ошибка: Один из листов не найден.");
+    return;
+  }
+
+  // Получаем выбранный месяц и год из H2 и F2 на листе "Расчеты"
+  var selectedMonth = calculationsSheet.getRange("H2").getValue().trim();
+  var selectedYear = calculationsSheet.getRange("F2").getValue().toString().trim();
+
+  // Преобразуем месяц с первой заглавной буквой
+  selectedMonth = capitalizeFirstLetter(selectedMonth);
+
+  // Определяем предыдущий месяц и год
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = capitalizeFirstLetter(previousMonthData.month);
+  var previousYear = previousMonthData.year;
+
+  var searchTextAllLeads = previousMonth + " все лиды";
+  var searchTextCleanLeads = previousMonth + " чистые лиды";
+
+  // Получаем данные из столбцов A и B листа "Карты, постоян.гости"
+  var columnA = guestsSheet.getRange("A:A").getValues().flat();
+  var columnB = guestsSheet.getRange("B:B").getValues().flat();
+
+  // Ищем строку с нужным текстом в столбце A для "все лиды"
+  var foundAllLeads = false;
+  for (var i = 0; i < columnA.length; i++) {
+    if (columnA[i].toString().trim() === searchTextAllLeads) {
+      var resultAllLeads = columnB[i];
+      Logger.log("Найдено: " + searchTextAllLeads + " в строке " + (i + 1) + ". Значение в B: " + resultAllLeads);
+
+      // Записываем найденное значение в C110 на листе "Расчеты" через вспомогательную функцию //A66
+      setValue(calculationsSheet, "mapsGuestAllLeadLast", resultAllLeads);
+      foundAllLeads = true;
+      break;
+    }
+  }
+  if (!foundAllLeads) {
+    Logger.log("Текст '" + searchTextAllLeads + "' не найден в столбце A.");
+    setValue(calculationsSheet, "mapsGuestAllLeadLast", "Нет данных");
+  }
+
+  // Ищем строку с нужным текстом в столбце A для "чистые лиды"
+  var foundCleanLeads = false;
+  for (var j = 0; j < columnA.length; j++) {
+    if (columnA[j].toString().trim() === searchTextCleanLeads) {
+      var resultCleanLeads = columnB[j];
+      Logger.log("Найдено: " + searchTextCleanLeads + " в строке " + (j + 1) + ". Значение в B: " + resultCleanLeads);
+
+      // Записываем найденное значение в C114 на листе "Расчеты" через вспомогательную функцию
+      setValue(calculationsSheet, "mapsGuestCleanLeadLast", resultCleanLeads);
+      foundCleanLeads = true;
+      break;
+    }
+  }
+  if (!foundCleanLeads) {
+    Logger.log("Текст '" + searchTextCleanLeads + "' не найден в столбце A.");
+    setValue(calculationsSheet, "mapsGuestCleanLeadLast", "Нет данных");
+  }
+}
+
+// Функция для получения данных для диаграммы сравнения NPS
+function NPSDiag() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationsSheet = ss.getSheetByName("Расчеты");
+
+  if (!calculationsSheet) {
+    Logger.log("Ошибка: Лист 'Расчеты' не найден.");
+    return;
+  }
+
+  // Получаем выбранный месяц и год из ячеек H2 и F2
+  var selectedMonth = calculationsSheet.getRange("H2").getValue().trim();
+  var selectedYear = calculationsSheet.getRange("F2").getValue().toString().trim();
+
+  // Преобразуем год в двухзначный формат (например, 2025 → 25)
+  var shortYear = selectedYear.slice(-2);
+
+  // Определяем названия листов для текущего и прошлого месяца
+  var currentMonthSheetName = selectedMonth.toUpperCase() + " " + shortYear;
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear);
+  var previousMonth = previousMonthData.month;
+  var previousYear = previousMonthData.year.toString().slice(-2);
+  var previousMonthSheetName = previousMonth.toUpperCase() + " " + previousYear;
+
+  Logger.log('Selected month: ' + selectedMonth);
+  Logger.log('Selected previous month: ' + previousMonth);
+
+  // Получаем данные за текущий месяц
+  var currentMonthSheet = ss.getSheetByName(currentMonthSheetName);
+  if (currentMonthSheet) {
+    var currentData = currentMonthSheet.getRange("N3:S7").getValues();
+    setRangeValues(calculationsSheet, "G59", currentData);
+    setValue(calculationsSheet, 'G58', selectedMonth);
+    setValue(calculationsSheet, 'J71', selectedMonth);
+  } else {
+    Logger.log("Лист '" + currentMonthSheetName + "' не найден.");
+    setValue(calculationsSheet, "G59", "Нет данных");
+  }
+
+  // Получаем данные за прошлый месяц
+  var previousMonthSheet = ss.getSheetByName(previousMonthSheetName);
+  if (previousMonthSheet) {
+    var previousData = previousMonthSheet.getRange("N3:S7").getValues();
+    setRangeValues(calculationsSheet, "M59", previousData);
+    setValue(calculationsSheet, 'M58', previousMonth);
+    setValue(calculationsSheet, 'J73', previousMonth);
+  } else {
+    Logger.log("Лист '" + previousMonthSheetName + "' не найден.");
+    setValue(calculationsSheet, "M59", "Нет данных");
+  }
+}
+
+
+
+
+// Функция для получения значений количества сданных квартир выбранного и прошлого периода
+function updateRentedFlatsCount() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  if (!calculationSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист "Расчеты" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Получаем месяц и год из ячеек H2 и F2
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+  var previousMonthData = getPreviousMonth(selectedMonth, selectedYear); // Здесь учитывается переход через год
+
+  // Формируем названия листов
+  var currentSheetName = convertMonthToUpperCase(selectedMonth, 'H2') + ' ' + selectedYear.toString().slice(-2);
+  var prevSheetName = convertMonthToUpperCase(previousMonthData.month, 'H2') + ' ' + previousMonthData.year.toString().slice(-2);
+
+  var currentSheet = ss.getSheetByName(currentSheetName);
+  var prevSheet = ss.getSheetByName(prevSheetName);
+
+  if (!currentSheet || !prevSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Один из листов месяца не найден: ' + (currentSheet ? '' : currentSheetName) + ' ' + (prevSheet ? '' : prevSheetName), SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Получаем значения из AP49
+  var currentValue = currentSheet.getRange('AP49').getValue();
+  var prevValue = prevSheet.getRange('AP49').getValue();
+
+  // Записываем значения в B126 и C126
+  setValue(calculationSheet, 'numberOfApartPeriodLast', currentValue);
+  setValue(calculationSheet, 'numberOfApartPeriodCurr', prevValue);
+
+  Logger.log('Количество сданных квартир обновлено: ' + currentSheetName + ' -> B126, ' + prevSheetName + ' -> C126');
+}

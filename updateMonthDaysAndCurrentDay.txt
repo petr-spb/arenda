@@ -1,0 +1,36 @@
+function updateMonthDaysAndCurrentDay() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+
+  // Текущая дата
+  var now = new Date();
+  var currentDay = now.getDate();
+
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var parts = sheetName.split(' ');
+    if (parts.length == 2 && MONTH_NAMES.includes(parts[0])) {
+      var monthIndex = MONTH_NAMES.indexOf(parts[0]);
+      var year = parseInt('20' + parts[1]); // Преобразуем последние две цифры года в полный год
+
+      // Получаем количество дней в месяце
+      var daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+      // Получаем текущие значения ячеек C1 и C2
+      var cellC1 = sheets[i].getRange('C1');
+      var cellC2 = sheets[i].getRange('C2');
+      var currentCellC1Value = cellC1.getValue();
+      var currentCellC2Value = cellC2.getValue();
+
+      // Обновляем значения в ячейках C1 и C2, если необходимо
+      if (currentCellC1Value !== daysInMonth) {
+        cellC1.setValue(daysInMonth);
+      }
+      if (currentCellC2Value !== currentDay) {
+        cellC2.setValue(currentDay);
+      }
+    }
+  }
+
+  Logger.log('Updated days in month and current day for sheets.');
+}

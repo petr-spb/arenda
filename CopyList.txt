@@ -1,0 +1,60 @@
+// Названия месяцев на русском языке
+const MONTH_NAMES = [
+  'ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ',
+  'ИЮЛЬ', 'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ', 'ДЕКАБРЬ'
+];
+
+// Функция для копирования листа и переименования его в следующий месяц
+function copyTemplateSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var templateSheetName = 'Шаблон лист (МЕСЯЦ ГГ)';
+
+  // Проверяем наличие листа-шаблона
+  var templateSheet = ss.getSheetByName(templateSheetName);
+  if (!templateSheet) {
+    Logger.log('Template sheet not found: ' + templateSheetName);
+    return;
+  }
+
+  // Получаем текущий месяц и год из названий листов
+  var currentMonthIndex = -1;
+  var currentYear = -1;
+  for (var i = 0; i < sheets.length; i++) {
+    var sheetName = sheets[i].getName();
+    var parts = sheetName.split(' ');
+    if (parts.length == 2 && MONTH_NAMES.includes(parts[0])) {
+      var monthIndex = MONTH_NAMES.indexOf(parts[0]);
+      var year = parseInt(parts[1]);
+      if (year > currentYear || (year == currentYear && monthIndex > currentMonthIndex)) {
+        currentMonthIndex = monthIndex;
+        currentYear = year;
+      }
+    }
+  }
+
+  // Если текущий месяц и год не найдены, используем текущую дату
+  if (currentMonthIndex == -1 || currentYear == -1) {
+    var now = new Date();
+    currentMonthIndex = now.getMonth();
+    currentYear = now.getFullYear() % 100; // Используем последние две цифры года
+  }
+
+  // Определяем следующий месяц и год
+  var nextMonthIndex = (currentMonthIndex + 1) % 12;
+  var nextYear = currentYear + (nextMonthIndex == 0 ? 1 : 0);
+  var nextMonthName = MONTH_NAMES[nextMonthIndex];
+  var nextSheetName = nextMonthName + ' ' + ('0' + nextYear).slice(-2);
+
+  // Проверяем, существует ли лист с таким названием
+  if (ss.getSheetByName(nextSheetName)) {
+    Logger.log('Sheet already exists: ' + nextSheetName);
+    return;
+  }
+
+  // Копируем лист-шаблон и переименовываем его
+  var newSheet = templateSheet.copyTo(ss);
+  newSheet.setName(nextSheetName);
+
+  Logger.log('Sheet copied and renamed to: ' + nextSheetName);
+}

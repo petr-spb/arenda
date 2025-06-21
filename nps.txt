@@ -1,0 +1,625 @@
+function calculateNPSRatings() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // const sheet = ss.getActiveSheet(); // Можно заменить на ss.getSheetByName('Имя_листа'), если нужен конкретный лист
+  const sheet = ss.getSheetByName('CleanControl')
+  const data = sheet.getDataRange().getValues(); // Получаем все данные таблицы
+
+  // Инициализация объектов для подсчета оценок
+  const ratings = {
+    cleaning: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, // Уборка (столбец D, индекс 3)
+    apartment: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, // Оценка квартиры (столбец E, индекс 4)
+    communication: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } // Коммуникация (столбец F, индекс 5)
+  };
+
+  // Подсчет оценок (начинаем со второй строки, пропуская заголовки)
+  for (let i = 1; i < data.length; i++) {
+    const cleaningRating = data[i][3]; // Уборка
+    const apartmentRating = data[i][4]; // Оценка квартиры
+    const communicationRating = data[i][5]; // Коммуникация
+
+    // Увеличиваем счетчик для каждой оценки, если она есть
+    if (cleaningRating >= 1 && cleaningRating <= 5) {
+      ratings.cleaning[cleaningRating]++;
+    }
+    if (apartmentRating >= 1 && apartmentRating <= 5) {
+      ratings.apartment[apartmentRating]++;
+    }
+    if (communicationRating >= 1 && communicationRating <= 5) {
+      ratings.communication[communicationRating]++;
+    }
+  }
+
+  // Подготовка данных для вывода в табличном формате
+  const output = [
+    ['оценка', 'Уборка', 'Оценка квартиры', 'Коммуникация'], // Заголовки
+    [1, ratings.cleaning[1], ratings.apartment[1], ratings.communication[1]],
+    [2, ratings.cleaning[2], ratings.apartment[2], ratings.communication[2]],
+    [3, ratings.cleaning[3], ratings.apartment[3], ratings.communication[3]],
+    [4, ratings.cleaning[4], ratings.apartment[4], ratings.communication[4]],
+    [5, ratings.cleaning[5], ratings.apartment[5], ratings.communication[5]]
+  ];
+
+  // Запись результатов в диапазон K7:N12
+  sheet.getRange('K2:N7').setValues(output);
+}
+
+// Тестовая функция для запуска
+function run() {
+  calculateNPSRatings();
+}
+
+
+// Основная функция для расчета NPS по месяцам
+// Основная функция для расчета NPS по месяцам
+// Основная функция для расчета NPS по месяцам
+function calculateNPSByMonth() {
+  // Логируем начало выполнения
+  Logger.log("Выполнение начато");
+
+  // Получаем активный лист
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("CleanControl");
+  if (!sheet) {
+    Logger.log("Ошибка: Лист CleanControl не найден");
+    return;
+  }
+  Logger.log("Активный лист: CleanControl");
+
+  // Получаем данные из таблицы
+  const data = sheet.getDataRange().getValues();
+  Logger.log("Получены данные из таблицы. Размер: " + data.length + " строк x " + data[0].length + " столбцов");
+
+  // Логируем первые 5 строк данных
+  Logger.log("Первые 5 строк данных: " + JSON.stringify(data.slice(0, 5)));
+
+  // Инициализируем маппинг месяцев
+  const monthMapping = {
+    "01": "Январь",
+    "02": "Февраль",
+    "03": "Март",
+    "04": "Апрель",
+    "05": "Май",
+    "06": "Июнь",
+    "07": "Июль",
+    "08": "Август",
+    "09": "Сентябрь",
+    "10": "Октябрь",
+    "11": "Ноябрь",
+    "12": "Декабрь"
+  };
+  Logger.log("Маппинг месяцев инициализирован: " + JSON.stringify(monthMapping));
+
+  // Инициализируем объекты для хранения рейтингов по месяцам
+  const monthlyRatings = {};
+  const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+  months.forEach(month => {
+    monthlyRatings[month] = {
+      cleaning: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, totalCount: 0 },
+      apartment: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, totalCount: 0 },
+      communication: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, totalCount: 0 }
+    };
+  });
+  Logger.log("Объекты monthlyRatings инициализированы для месяцев: " + months.join(", "));
+
+  // Переменная для подсчета обработанных строк
+  let processedRows = 0;
+
+  // Обрабатываем строки данных, начиная со второй строки (первая - заголовки)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    Logger.log("Обработка строки " + (i + 1) + ": Полные данные строки = " + JSON.stringify(row));
+
+    // Извлекаем дату из первого столбца
+    const dateRaw = row[0];
+    Logger.log("Строка " + (i + 1) + ": Исходное значение даты = " + dateRaw + ", Тип = " + typeof dateRaw);
+
+    let month;
+    if (dateRaw && typeof dateRaw === "string" && dateRaw.includes("T")) {
+      // Парсим дату в формате ISO (например, "2025-02-17T08:00:00.000Z")
+      const date = new Date(dateRaw);
+      if (isNaN(date.getTime())) {
+        Logger.log("Строка " + (i + 1) + ": Пропущена - некорректный формат даты");
+        continue;
+      }
+      month = ("0" + (date.getUTCMonth() + 1)).slice(-2); // Получаем месяц в формате "01", "02" и т.д.
+      Logger.log("Строка " + (i + 1) + ": Объект Date обнаружен, месяц = " + month + " (" + monthMapping[month] + ")");
+    } else if (dateRaw instanceof Date) {
+      // Если дата уже объект Date
+      month = ("0" + (dateRaw.getMonth() + 1)).slice(-2);
+      Logger.log("Строка " + (i + 1) + ": Объект Date обнаружен, месяц = " + month + " (" + monthMapping[month] + ")");
+    } else {
+      Logger.log("Строка " + (i + 1) + ": Пропущена - некорректный формат даты");
+      continue;
+    }
+
+    // Извлекаем оценки
+    const cleaning = row[3]; // Уборка
+    const apartment = row[4]; // Оценка квартиры
+    const communication = row[5]; // Коммуникация
+
+    Logger.log(
+      "Строка " + (i + 1) + ": Уборка = " + cleaning + " (Тип: " + typeof cleaning +
+      "), Оценка квартиры = " + apartment + " (Тип: " + typeof apartment +
+      "), Коммуникация = " + communication + " (Тип: " + typeof communication + ")"
+    );
+
+    // Проверяем и учитываем оценку "Уборка"
+    if (typeof cleaning === "number" && cleaning >= 1 && cleaning <= 5 && Number.isInteger(cleaning)) {
+      monthlyRatings[month].cleaning[cleaning]++;
+      monthlyRatings[month].cleaning.totalCount++;
+      Logger.log("Строка " + (i + 1) + ": Увеличен счётчик Уборка для " + cleaning + ", totalCount = " + monthlyRatings[month].cleaning.totalCount);
+    } else {
+      Logger.log("Строка " + (i + 1) + ": Уборка не учтена - не число от 1 до 5");
+    }
+
+    // Проверяем и учитываем оценку "Оценка квартиры"
+    if (typeof apartment === "number" && apartment >= 1 && apartment <= 5 && Number.isInteger(apartment)) {
+      monthlyRatings[month].apartment[apartment]++;
+      monthlyRatings[month].apartment.totalCount++;
+      Logger.log("Строка " + (i + 1) + ": Увеличен счётчик Оценка квартиры для " + apartment + ", totalCount = " + monthlyRatings[month].apartment.totalCount);
+    } else {
+      Logger.log("Строка " + (i + 1) + ": Оценка квартиры не учтена - не число от 1 до 5");
+    }
+
+    // Проверяем и учитываем оценку "Коммуникация"
+    if (typeof communication === "number" && communication >= 1 && communication <= 5 && Number.isInteger(communication)) {
+      monthlyRatings[month].communication[communication]++;
+      monthlyRatings[month].communication.totalCount++;
+      Logger.log("Строка " + (i + 1) + ": Увеличен счётчик Коммуникация для " + communication + ", totalCount = " + monthlyRatings[month].communication.totalCount);
+    } else {
+      Logger.log("Строка " + (i + 1) + ": Коммуникация не учтена - не число от 1 до 5");
+    }
+
+    processedRows++;
+  }
+
+  Logger.log("Обработано строк с учётом оценок: " + processedRows);
+
+  // Рассчитываем средние значения и формируем вывод
+  const output = [];
+  months.forEach((month, index) => {
+    const ratings = monthlyRatings[month];
+    const totalCount = ratings.cleaning.totalCount + ratings.apartment.totalCount + ratings.communication.totalCount;
+    Logger.log("Обработка месяца " + month + " (" + monthMapping[month] + "): totalCount = " + totalCount);
+
+    if (totalCount === 0) {
+      Logger.log("Месяц " + month + ": Нет данных для расчёта средних");
+      return;
+    }
+
+    // Рассчитываем средние значения (для логирования)
+    const avgCleaning = (ratings.cleaning.totalCount > 0)
+      ? (ratings.cleaning[1] * 1 + ratings.cleaning[2] * 2 + ratings.cleaning[3] * 3 + ratings.cleaning[4] * 4 + ratings.cleaning[5] * 5) / ratings.cleaning.totalCount
+      : 0;
+    const avgApartment = (ratings.apartment.totalCount > 0)
+      ? (ratings.apartment[1] * 1 + ratings.apartment[2] * 2 + ratings.apartment[3] * 3 + ratings.apartment[4] * 4 + ratings.apartment[5] * 5) / ratings.apartment.totalCount
+      : 0;
+    const avgCommunication = (ratings.communication.totalCount > 0)
+      ? (ratings.communication[1] * 1 + ratings.communication[2] * 2 + ratings.communication[3] * 3 + ratings.communication[4] * 4 + ratings.communication[5] * 5) / ratings.communication.totalCount
+      : 0;
+
+    Logger.log(
+      "Месяц " + month + ": Средние значения - Уборка: " + avgCleaning.toFixed(2) +
+      ", Оценка квартиры: " + avgApartment.toFixed(2) +
+      ", Коммуникация: " + avgCommunication.toFixed(2)
+    );
+
+    // Добавляем данные в output
+    Logger.log("Обработка вывода для месяца " + month + " (" + monthMapping[month] + "), totalCount = " + totalCount);
+
+    // Добавляем название месяца (нормализуем до 4 столбцов)
+    output.push([monthMapping[month], "", "", ""]);
+    Logger.log("Добавлено название месяца: " + monthMapping[month]);
+
+    // Добавляем заголовки
+    output.push(["оценка", "Уборка", "Оценка квартиры", "Коммуникация"]);
+    Logger.log("Добавлены заголовки");
+
+    // Рассчитываем "Критики" (сумма оценок 1, 2, 3)
+    const criticsCleaning = ratings.cleaning[1] + ratings.cleaning[2] + ratings.cleaning[3];
+    const criticsApartment = ratings.apartment[1] + ratings.apartment[2] + ratings.apartment[3];
+    const criticsCommunication = ratings.communication[1] + ratings.communication[2] + ratings.communication[3];
+    output.push(["Критики", criticsCleaning, criticsApartment, criticsCommunication]);
+    Logger.log(
+      "Добавлены Критики: Уборка: " + criticsCleaning +
+      ", Оценка квартиры: " + criticsApartment +
+      ", Коммуникация: " + criticsCommunication
+    );
+
+    // Добавляем "Нейтралы" (оценка 4)
+    output.push(["Нейтралы", ratings.cleaning[4], ratings.apartment[4], ratings.communication[4]]);
+    Logger.log(
+      "Добавлены Нейтралы: Уборка: " + ratings.cleaning[4] +
+      ", Оценка квартиры: " + ratings.apartment[4] +
+      ", Коммуникация: " + ratings.communication[4]
+    );
+
+    // Добавляем "Промоутеры" (оценка 5)
+    output.push(["Промоутеры", ratings.cleaning[5], ratings.apartment[5], ratings.communication[5]]);
+    Logger.log(
+      "Добавлены Промоутеры: Уборка: " + ratings.cleaning[5] +
+      ", Оценка квартиры: " + ratings.apartment[5] +
+      ", Коммуникация: " + ratings.communication[5]
+    );
+
+    // Рассчитываем NPS
+    const npsCleaning = (ratings.cleaning.totalCount > 0)
+      ? ((ratings.cleaning[5] + ratings.cleaning[4] * 0.5) / ratings.cleaning.totalCount * 5).toFixed(2)
+      : "0.00";
+    const npsApartment = (ratings.apartment.totalCount > 0)
+      ? ((ratings.apartment[5] + ratings.apartment[4] * 0.5) / ratings.apartment.totalCount * 5).toFixed(2)
+      : "0.00";
+    const npsCommunication = (ratings.communication.totalCount > 0)
+      ? ((ratings.communication[5] + ratings.communication[4] * 0.5) / ratings.communication.totalCount * 5).toFixed(2)
+      : "0.00";
+
+    Logger.log(
+      "Месяц " + month + ": Суммы количеств - Уборка: " + ratings.cleaning.totalCount +
+      ", Оценка квартиры: " + ratings.apartment.totalCount +
+      ", Коммуникация: " + ratings.communication.totalCount
+    );
+    Logger.log(
+      "Месяц " + month + ": NPS - Уборка: " + npsCleaning +
+      ", Оценка квартиры: " + npsApartment +
+      ", Коммуникация: " + npsCommunication
+    );
+
+    // Добавляем строку с NPS
+    output.push(["NPS", npsCleaning, npsApartment, npsCommunication]);
+    Logger.log("Добавлена строка с NPS");
+
+    // Добавляем пустую строку после NPS, если это не последний месяц
+    if (index < months.length - 1) {
+      output.push(["", "", "", ""]);
+      Logger.log("Добавлена пустая строка между месяцами");
+    }
+  });
+
+  // Логируем итоговый массив output
+  Logger.log("Итоговый массив output: " + JSON.stringify(output));
+  Logger.log("Общее количество строк для записи: " + output.length);
+
+  // Устанавливаем динамический диапазон с началом с P3
+  const startRow = 3; // Начало с строки 3
+  const startColumn = 16; // P — 16-й столбец
+  const numRows = output.length; // Динамическое количество строк
+  const numColumns = 4; // 4 столбца (P, Q, R, S)
+  const range = sheet.getRange(startRow, startColumn, numRows, numColumns);
+  Logger.log("Динамический диапазон для записи: P" + startRow + ":S" + (startRow + numRows - 1));
+  range.setValues(output);
+}
+
+// Тестовая функция для запуска
+function run_month() {
+  calculateNPSByMonth();
+}
+
+
+function calculateAndDisplayNPS() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var calculationSheet = ss.getSheetByName('Расчеты');
+  if (!calculationSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист "Расчеты" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  var cleanSheet = ss.getSheetByName('CleanControl');
+  if (!cleanSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист "CleanControl" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Получаем текущий месяц и год
+  var selectedMonth = getValue(calculationSheet, 'H2');
+  var selectedYear = getValue(calculationSheet, 'F2');
+  var currentSheetName = convertMonthToUpperCase(selectedMonth, 'H2') + ' ' + selectedYear.toString().slice(-2);
+  var currentSheet = ss.getSheetByName(currentSheetName);
+  if (!currentSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист текущего месяца "' + currentSheetName + '" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Загружаем данные из CleanControl
+  var data = cleanSheet.getDataRange().getValues();
+  if (data.length < 2) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Недостаточно данных в листе "CleanControl".', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Определяем количество категорий (столбцов с оценками)
+  var headerRow = data[0]; // Заголовки
+  var numCategories = headerRow.length - 3; // Исключаем первые 3 столбца (A, B, C), остальные — категории
+  if (numCategories < 1) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'В листе "CleanControl" нет столбцов с оценками (начиная с D).', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Определяем номер текущего месяца
+  var currentMonthNum = getMonthNumber(selectedMonth);
+
+  // Инициализация рейтингов для текущего месяца
+  var ratings = [];
+  for (var cat = 0; cat < numCategories; cat++) {
+    ratings.push({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, total: 0 });
+  }
+
+  // Обработка данных из CleanControl
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var date = row[0] instanceof Date ? row[0] : new Date(row[0]);
+    if (isNaN(date.getTime())) continue;
+
+    var month = ("0" + (date.getMonth() + 1)).slice(-2);
+    if (month !== currentMonthNum) continue;
+
+    // Обрабатываем оценки для каждой категории
+    for (var cat = 0; cat < numCategories; cat++) {
+      var score = row[3 + cat]; // Начинаем с D (индекс 3)
+      // Приводим score к числу, если это строка
+      score = typeof score === 'string' ? parseInt(score, 10) : score;
+      if (score >= 1 && score <= 5 && Number.isInteger(score)) {
+        ratings[cat][score] = (ratings[cat][score] || 0) + 1; // Увеличиваем счётчик для данной оценки
+        ratings[cat].total = (ratings[cat].total || 0) + 1; // Увеличиваем общее количество
+      }
+    }
+  }
+
+  // Формируем данные для записи (только критики, нейтралы, промоутеры с N5)
+  var monthData = [
+    ["Критики"].concat(ratings.map(r => (r[1] || 0) + (r[2] || 0) + (r[3] || 0))), // Критики (N5, O5, Q5, S5)
+    ["Нейтралы"].concat(ratings.map(r => r[4] || 0)), // Нейтралы (N6, O6, Q6, S6)
+    ["Промоутеры"].concat(ratings.map(r => r[5] || 0)) // Промоутеры (N7, O7, Q7, S7)
+  ];
+
+  // Определяем начальные позиции и записываем данные через один столбец
+  var startRow = 5; // Начинаем с N5 (N3 — статический текст, N4 — формулы)
+  var startColumn = 14; // N — 14-й столбец (индекс 14)
+  var numRows = monthData.length; // 3 строки (критики, нейтралы, промоутеры)
+  var numColumns = (numCategories * 2) + 1; // Количество столбцов: N, O, P, Q, R, S (для 3 категорий — 7 столбцов)
+
+  // Преобразуем данные для записи, начиная с O (15-й столбец)
+  var adjustedData = [];
+  for (var row = 0; row < numRows; row++) {
+    var newRow = [];
+    newRow.push(monthData[row][0]); // Первый элемент (Критики и т.д.) в N
+    for (var col = 0; col < numCategories; col++) {
+      var targetCol = 15 + (col * 2); // O (15), Q (17), S (19)
+      if (col === 0) {
+        newRow.push(monthData[row][col + 1] || 0); // Записываем данные в O
+      } else {
+        newRow.push(""); // Пропускаем столбец (P, R и т.д.)
+        newRow.push(monthData[row][col + 1] || 0); // Записываем данные в Q, S
+      }
+    }
+    // Ограничиваем длину строки до S (19-й столбец, индекс 19 - 14 = 5 в массиве)
+    while (newRow.length > 6) {
+      newRow.pop(); // Удаляем лишние элементы после S
+    }
+    adjustedData.push(newRow);
+  }
+
+  // Записываем данные
+  currentSheet.getRange(startRow, startColumn, numRows, adjustedData[0].length).setValues(adjustedData);
+
+  Logger.log('NPS данные для ' + currentSheetName + ' обновлены в N' + startRow + ':N' + (startRow + numRows - 1) + ' из CleanControl');
+}
+
+
+function updateNPSApartment() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var cleanSheet = ss.getSheetByName('CleanControl');
+  if (!cleanSheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист "CleanControl" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Загружаем данные из CleanControl
+  var data = cleanSheet.getDataRange().getValues();
+  if (data.length < 2) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Недостаточно данных в листе "CleanControl".', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Определяем последнюю строку с данными
+  var lastRow = 1; // Начинаем со второй строки (индекс 1)
+  var emptyRowCount = 0; // Счётчик пустых строк подряд
+  for (var i = data.length - 1; i >= 1; i--) { // Идём с конца
+    var date = data[i][0]; // Столбец A
+    var objectName = data[i][1]; // Столбец B
+    var score = data[i][4]; // Столбец E
+
+    // Проверяем, есть ли данные в A, B или E
+    if ((date && date.toString().trim() !== "") ||
+        (objectName && objectName.toString().trim() !== "") ||
+        (score && score.toString().trim() !== "")) {
+      lastRow = i; // Нашли строку с данными
+      break;
+    }
+
+    emptyRowCount++;
+    // Если 10 строк подряд пустые, считаем, что данные закончились
+    if (emptyRowCount >= 10) {
+      lastRow = i + 10; // Отматываем назад на 10 строк
+      break;
+    }
+  }
+
+  // Отматываем назад на 10 строк от последней строки с данными
+  lastRow = Math.max(1, lastRow - 10);
+
+  // Инициализация переменных
+  var objects = []; // Массив для названий объектов (столбец B)
+  var scores = []; // Массив для оценок (столбец E)
+  var emptyObjectsCount = 0; // Количество пустых строк в B (незаполненные квартиры)
+  var emptyScoresCount = 0; // Количество пустых строк в E (не проставленные оценки)
+
+  // Извлекаем данные из столбцов A, B и E, начиная со второй строки до lastRow
+  for (var i = 1; i <= lastRow; i++) {
+    var objectName = data[i][1]; // Столбец B (индекс 1)
+    var score = data[i][4]; // Столбец E (индекс 4)
+
+    // Подсчёт пустых строк в B (незаполненные квартиры)
+    if (!objectName || objectName.toString().trim() === "") {
+      emptyObjectsCount++;
+    }
+
+    // Подсчёт пустых строк в E (не проставленные оценки, независимо от B)
+    if (!score || score.toString().trim() === "") {
+      emptyScoresCount++;
+    }
+
+    objects.push(objectName || ""); // Сохраняем название объекта (или пустую строку)
+    scores.push(score || ""); // Сохраняем оценку (или пустую строку)
+  }
+
+  // Получаем уникальные объекты (исключая пустые)
+  var uniqueObjects = [...new Set(objects.filter(obj => obj && obj.toString().trim() !== ""))];
+
+  // Инициализация структуры для подсчёта оценок
+  var objectRatings = {};
+  uniqueObjects.forEach(obj => {
+    objectRatings[obj] = {
+      "noScore": 0, // Без оценки
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    };
+  });
+
+  // Подсчёт оценок для каждого объекта
+  for (var i = 0; i < objects.length; i++) {
+    var obj = objects[i];
+    var score = scores[i];
+
+    // Пропускаем, если объект пустой (для подсчёта оценок)
+    if (!obj || obj.toString().trim() === "") continue;
+
+    // Если оценка пустая, увеличиваем счётчик "Без оценки"
+    if (!score || score.toString().trim() === "") {
+      objectRatings[obj]["noScore"]++;
+    } else {
+      // Приводим оценку к числу
+      score = typeof score === 'string' ? parseInt(score, 10) : score;
+      if (score >= 1 && score <= 5 && Number.isInteger(score)) {
+        objectRatings[obj][score.toString()]++;
+      }
+    }
+  }
+
+  // Формируем данные для записи
+  // Заголовки (U3:AA3)
+  var headers = ["Название объекта", "Без оценки", "1", "2", "3", "4", "5"];
+  
+  // Данные (начиная с U4)
+  var outputData = [];
+  uniqueObjects.forEach(obj => {
+    var row = [
+      obj, // Название объекта
+      objectRatings[obj]["noScore"], // Без оценки
+      objectRatings[obj]["1"], // Оценка 1
+      objectRatings[obj]["2"], // Оценка 2
+      objectRatings[obj]["3"], // Оценка 3
+      objectRatings[obj]["4"], // Оценка 4
+      objectRatings[obj]["5"]  // Оценка 5
+    ];
+    outputData.push(row);
+  });
+
+  // Записываем количество пустых строк в T1 и T2
+  cleanSheet.getRange("V1").setValue(emptyObjectsCount); // T1 — количество незаполненных квартир (пустых в B)
+  cleanSheet.getRange("V2").setValue(emptyScoresCount); // T2 — количество не проставленных оценок (пустых в E)
+  setValue(cleanSheet, 'U1', 'Незапол квартиры');
+  setValue(cleanSheet, 'U2', 'Непростав оценки');
+
+  // Записываем заголовки (U3:AA3)
+  cleanSheet.getRange(3, 21, 1, headers.length).setValues([headers]); // U3 (столбец 21)
+
+  // Записываем данные (начиная с U4)
+  if (outputData.length > 0) {
+    cleanSheet.getRange(4, 21, outputData.length, headers.length).setValues(outputData); // U4 (столбец 21)
+  }
+
+  Logger.log('Данные по объектам и оценкам записаны в CleanControl, начиная с U3');
+}
+
+
+function displayMaidRatings() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('CleanControl');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Лист "CleanControl" не найден.', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Получаем данные из таблицы
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) {
+    SpreadsheetApp.getUi().alert('Ошибка', 'Недостаточно данных в листе "CleanControl".', SpreadsheetApp.ButtonSet.OK);
+    return;
+  }
+
+  // Извлекаем имена горничных и оценки (столбцы C и D)
+  const maids = [];
+  const scores = [];
+  for (let i = 1; i < data.length; i++) { // Пропускаем заголовки
+    const maidName = data[i][2]; // Столбец C — Ответственный за уборку
+    const score = data[i][3]; // Столбец D — Оценка
+    maids.push(maidName || "");
+    scores.push(score || "");
+  }
+
+  // Получаем уникальные имена горничных (исключая пустые)
+  const uniqueMaids = [...new Set(maids.filter(maid => maid && maid.toString().trim() !== ""))];
+
+  // Инициализируем структуру для подсчета оценок
+  const maidRatings = {};
+  uniqueMaids.forEach(maid => {
+    maidRatings[maid] = { "noScore": 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  });
+
+  // Подсчитываем оценки для каждой горничной
+  for (let i = 0; i < maids.length; i++) {
+    const maid = maids[i];
+    const score = scores[i];
+    if (!maid || maid.toString().trim() === "") continue; // Пропускаем пустые имена
+
+    if (!score || score.toString().trim() === "") {
+      maidRatings[maid]["noScore"]++;
+    } else {
+      const scoreNum = typeof score === 'string' ? parseInt(score, 10) : score;
+      if (scoreNum >= 1 && scoreNum <= 5 && Number.isInteger(scoreNum)) {
+        maidRatings[maid][scoreNum]++;
+      }
+    }
+  }
+
+  // Формируем данные для вывода
+  const output = [];
+  output.push(["Имя горничной", "Без оценки", "1", "2", "3", "4", "5"]); // Заголовки
+
+  uniqueMaids.forEach(maid => {
+    const row = [
+      maid,
+      maidRatings[maid]["noScore"],
+      maidRatings[maid][1],
+      maidRatings[maid][2],
+      maidRatings[maid][3],
+      maidRatings[maid][4],
+      maidRatings[maid][5]
+    ];
+    output.push(row);
+  });
+
+  // Записываем данные начиная с AE3 (столбец 31)
+  const startRow = 3;
+  const startColumn = 31; // AE — 31-й столбец
+  sheet.getRange(startRow, startColumn, output.length, 7).setValues(output);
+
+  Logger.log('Данные по горничным записаны в CleanControl, начиная с AE3');
+}
+
+// Тестовая функция для запуска
+function runMaidRatings() {
+  displayMaidRatings();
+}

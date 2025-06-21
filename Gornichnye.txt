@@ -1,0 +1,756 @@
+function displayMaidRatingsByMonth() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Получаем лист CleanControl для чтения данных
+  const dataSheet = ss.getSheetByName('CleanControl');
+  if (!dataSheet) {
+    Logger.log('Ошибка: Лист "CleanControl" не найден.');
+    return;
+  }
+
+  // Получаем или создаем лист "Рейтинг горничных" для вывода
+  let outputSheet = ss.getSheetByName('Рейтинг горничных');
+  if (!outputSheet) {
+    outputSheet = ss.insertSheet('Рейтинг горничных');
+  } else {
+    outputSheet.clear();
+  }
+
+  // Получаем или создаем лист "Расчеты" для вывода
+  let calcSheet = ss.getSheetByName('Расчеты');
+  if (!calcSheet) {
+    calcSheet = ss.insertSheet('Расчеты');
+  }
+
+  // Получаем данные из таблицы CleanControl
+  const data = dataSheet.getDataRange().getValues();
+  if (data.length < 2) {
+    Logger.log('Ошибка: Недостаточно данных в листе "CleanControl".');
+    return;
+  }
+
+  // Маппинг месяцев
+  const monthMapping = {
+    "01": "ЯНВАРЬ", "02": "ФЕВРАЛЬ", "03": "МАРТ", "04": "АПРЕЛЬ",
+    "05": "МАЙ", "06": "ИЮНЬ", "07": "ИЮЛЬ", "08": "АВГУСТ",
+    "09": "СЕНТЯБРЬ", "10": "ОКТЯБРЬ", "11": "НОЯБРЬ", "12": "ДЕКАБРЬ"
+  };
+  const months = Object.keys(monthMapping);
+
+  // Обратный маппинг для преобразования названия месяца в номер
+  const reverseMonthMapping = {};
+  for (const [key, value] of Object.entries(monthMapping)) {
+    reverseMonthMapping[value] = key;
+  }
+
+  // Инициализируем структуру для хранения рейтингов по месяцам и годам
+  const yearlyMonthlyRatings = {}; // Убрали изначальную инициализацию с месяцами
+
+  // Обрабатываем данные
+  let emptyRowCount = 0; // Счётчик последовательных пустых строк
+  let firstEmptyRowIndex = -1; // Индекс первой пустой строки в последовательности
+
+  for (let i = 1; i < data.length; i++) {
+    const dateRaw = data[i][0]; // Столбец A — Дата
+    const maid = data[i][2] && typeof data[i][2] === "string" && data[i][2].trim() ? data[i][2].trim() : "Н/а";
+    const score = data[i][3]; // Столбец D — Оценка
+
+    // Проверяем, пустая ли строка в диапазоне A:G (столбцы 0-6)
+    const rowData = data[i].slice(0, 7); // Берем столбцы A:G (0-6)
+    const isRowEmpty = rowData.every(cell => !cell || (typeof cell === "string" && cell.trim() === ""));
+
+    if (isRowEmpty) {
+      if (emptyRowCount === 0) {
+        firstEmptyRowIndex = i; // Запоминаем индекс первой пустой строки
+      }
+      emptyRowCount++; // Увеличиваем счётчик пустых строк
+      Logger.log(`Строка ${i + 1}: Пустая строка (диапазон A:G), счётчик пустых строк = ${emptyRowCount}`);
+
+      // Если найдено 5 последовательных пустых строк, останавливаем обработку
+      if (emptyRowCount >= 5) {
+        Logger.log(`Обнаружено 5 последовательных пустых строк. Остановка на строке ${firstEmptyRowIndex + 1}`);
+        break; // Останавливаем цикл
+      }
+      continue; // Пропускаем пустую строку
+    } else {
+      // Если строка непустая (есть данные в диапазоне A:G), сбрасываем счётчик
+      emptyRowCount = 0;
+      firstEmptyRowIndex = -1;
+    }
+
+    // Логируем данные строки
+    Logger.log(`Строка ${i + 1}: Дата=${dateRaw}, Горничная=${maid}, Оценка=${score} (Тип: ${typeof score})`);
+
+    // Парсим дату
+    let year, month;
+    if (dateRaw && typeof dateRaw === "string" && dateRaw.includes("T")) {
+      const date = new Date(dateRaw);
+      if (isNaN(date.getTime())) {
+        Logger.log(`Строка ${i + 1}: Пропущена - некорректная дата`);
+        continue;
+      }
+      year = date.getUTCFullYear().toString();
+      month = ("0" + (date.getUTCMonth() + 1)).slice(-2);
+    } else if (dateRaw instanceof Date) {
+      year = dateRaw.getFullYear().toString();
+      month = ("0" + (dateRaw.getMonth() + 1)).slice(-2);
+    } else {
+      Logger.log(`Строка ${i + 1}: Пропущена - некорректная дата`);
+      continue;
+    }
+
+    // Проверяем, что year и month определены
+    if (!year || !month) {
+      Logger.log(`Строка ${i + 1}: Пропущена - не удалось определить год или месяц`);
+      continue;
+    }
+
+    // Инициализируем год в yearlyMonthlyRatings, если он еще не существует
+    if (!yearlyMonthlyRatings[year]) {
+      yearlyMonthlyRatings[year] = {};
+      months.forEach(m => {
+        yearlyMonthlyRatings[year][m] = {};
+      });
+    }
+
+    // Инициализируем горничную в месяце, если еще не существует
+    if (!yearlyMonthlyRatings[year][month]) {
+      yearlyMonthlyRatings[year][month] = {};
+    }
+    if (!yearlyMonthlyRatings[year][month][maid]) {
+      yearlyMonthlyRatings[year][month][maid] = { "noScore": 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, totalCount: 0 };
+    }
+
+    // Учитываем оценку
+    if (!score || score.toString().trim() === "" || isNaN(score)) {
+      yearlyMonthlyRatings[year][month][maid]["noScore"]++;
+      Logger.log(`Строка ${i + 1}: Горничная ${maid} - учтено как "Без оценки"`);
+    } else {
+      const scoreNum = typeof score === 'string' ? parseInt(score, 10) : score;
+      if (scoreNum >= 1 && scoreNum <= 5 && Number.isInteger(scoreNum)) {
+        yearlyMonthlyRatings[year][month][maid][scoreNum]++;
+        yearlyMonthlyRatings[year][month][maid].totalCount++;
+        Logger.log(`Строка ${i + 1}: Горничная ${maid} - оценка ${scoreNum} учтена, totalCount=${yearlyMonthlyRatings[year][month][maid].totalCount}`);
+      } else {
+        yearlyMonthlyRatings[year][month][maid]["noScore"]++;
+        Logger.log(`Строка ${i + 1}: Горничная ${maid} - оценка ${score} невалидна, учтено как "Без оценки"`);
+      }
+    }
+  }
+
+  // Формируем данные для вывода на лист "Рейтинг горничных"
+  const output = [];
+  try {
+    const years = Object.keys(yearlyMonthlyRatings).sort(); // Сортируем годы по возрастанию
+    years.forEach(year => {
+      // Проверяем, что year — это действительно год (4 цифры, например "2025")
+      if (!/^\d{4}$/.test(year)) {
+        Logger.log(`Пропускаем ключ ${year}, так как это не год`);
+        return;
+      }
+
+      months.forEach((month, index) => {
+        // Проверяем, существуют ли данные для года и месяца
+        if (!yearlyMonthlyRatings[year] || !yearlyMonthlyRatings[year][month]) {
+          Logger.log(`Пропускаем месяц ${month} для года ${year}, так как данные отсутствуют`);
+          return;
+        }
+
+        const maidsInMonth = Object.keys(yearlyMonthlyRatings[year][month]);
+        if (maidsInMonth.length === 0) return; // Пропускаем пустые месяцы
+
+        // Добавляем название месяца и год
+        output.push([`${monthMapping[month]} ${year}`, "", "", "", "", "", "", "", "", ""]);
+        Logger.log(`Добавлено название месяца: ${monthMapping[month]} ${year}`);
+
+        // Добавляем заголовки
+        output.push(["Имя горничной", "Без оценки", "1", "2", "3", "4", "5", "Кол-во оцененных уборок", "Байесова средняя", "Итоговый рейтинг"]);
+        Logger.log("Добавлены заголовки: Имя горничной, Без оценки, 1, 2, 3, 4, 5, Кол-во оцененных уборок, Байесова средняя, Итоговый рейтинг");
+
+        // Определяем константы для Байесовой средней
+        const C = 15; // Среднее количество оценок
+        const m = 4.97; // Средняя оценка
+
+        // Разделяем горничных на тех, у кого есть имя, и "Н/а"
+        const namedMaids = maidsInMonth.filter(maid => maid !== "Н/а");
+        const naMaid = maidsInMonth.find(maid => maid === "Н/а");
+
+        // Сортируем горничных с именами по убыванию Байесовой средней
+        const sortedNamedMaids = namedMaids.sort((a, b) => {
+          const ratingsA = yearlyMonthlyRatings[year][month][a];
+          const ratingsB = yearlyMonthlyRatings[year][month][b];
+          const scoreSumA = (ratingsA[1] || 0) * 1 + (ratingsA[2] || 0) * 2 + (ratingsA[3] || 0) * 3 +
+                           (ratingsA[4] || 0) * 4 + (ratingsA[5] || 0) * 5;
+          const totalCountA = ratingsA.totalCount > 0 ? ratingsA.totalCount : 1;
+          const bayesianA = totalCountA > 0 ? (scoreSumA + C * m) / (totalCountA + C) : 0;
+
+          const scoreSumB = (ratingsB[1] || 0) * 1 + (ratingsB[2] || 0) * 2 + (ratingsB[3] || 0) * 3 +
+                           (ratingsB[4] || 0) * 4 + (ratingsB[5] || 0) * 5;
+          const totalCountB = ratingsB.totalCount > 0 ? ratingsB.totalCount : 1;
+          const bayesianB = totalCountB > 0 ? (scoreSumB + C * m) / (totalCountB + C) : 0;
+
+          return bayesianB - bayesianA; // Сортировка по убыванию
+        });
+
+        // Добавляем данные по горничным с именами с присвоением рангов
+        sortedNamedMaids.forEach((maid, idx) => {
+          const ratings = yearlyMonthlyRatings[year][month][maid];
+          const totalCount = ratings.totalCount;
+          const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                           (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+          const bayesianAverage = totalCount > 0
+            ? Math.round((scoreSum + C * m) / (totalCount + C) * 100) / 100
+            : 0;
+          const exactBayesian = totalCount > 0 ? (scoreSum + C * m) / (totalCount + C) : 0;
+
+          // Присваиваем ранг (учитываем равные значения)
+          let rank = idx + 1;
+          for (let j = 0; j < idx; j++) {
+            const prevRatings = yearlyMonthlyRatings[year][month][sortedNamedMaids[j]];
+            const prevTotalCount = prevRatings.totalCount > 0 ? prevRatings.totalCount : 1;
+            const prevScoreSum = (prevRatings[1] || 0) * 1 + (prevRatings[2] || 0) * 2 + (prevRatings[3] || 0) * 3 +
+                               (prevRatings[4] || 0) * 4 + (prevRatings[5] || 0) * 5;
+            const prevExactBayesian = prevTotalCount > 0 ? (prevScoreSum + C * m) / (prevTotalCount + C) : 0;
+            if (Math.abs(exactBayesian - prevExactBayesian) < 0.001) {
+              rank = j + 1;
+              break;
+            }
+          }
+
+          output.push([
+            maid,
+            ratings.noScore || 0,
+            ratings[1] || 0,
+            ratings[2] || 0,
+            ratings[3] || 0,
+            ratings[4] || 0,
+            ratings[5] || 0,
+            totalCount,
+            bayesianAverage,
+            rank
+          ]);
+          Logger.log(
+            "Добавлена строка для " + maid + ": " +
+            JSON.stringify([ratings.noScore, ratings[1], ratings[2], ratings[3], ratings[4], ratings[5], totalCount, bayesianAverage, rank])
+          );
+        });
+
+        // Добавляем данные для "Н/а" в конец, без ранга
+        if (naMaid) {
+          const ratings = yearlyMonthlyRatings[year][month][naMaid];
+          const totalCount = 0;
+          const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                           (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+          const bayesianAverage = 0;
+
+          output.push([
+            naMaid,
+            ratings.noScore || 0,
+            ratings[1] || 0,
+            ratings[2] || 0,
+            ratings[3] || 0,
+            ratings[4] || 0,
+            ratings[5] || 0,
+            totalCount,
+            bayesianAverage,
+            ""
+          ]);
+          Logger.log(
+            "Добавлена строка для " + naMaid + ": " +
+            JSON.stringify([ratings.noScore, ratings[1], ratings[2], ratings[3], ratings[4], ratings[5], totalCount, bayesianAverage, ""])
+          );
+        }
+
+        // Добавляем пустую строку между месяцами (кроме последнего)
+        if (index < months.length - 1 || year !== years[years.length - 1]) {
+          output.push(["", "", "", "", "", "", "", "", "", ""]);
+          Logger.log("Добавлена пустая строка между месяцами");
+        }
+      });
+    });
+  } catch (error) {
+    Logger.log(`Произошла ошибка при формировании данных: ${error.message}. Выводим накопленные данные на лист.`);
+    Logger.log(`Стек вызовов: ${error.stack}`);
+  }
+
+  // Получаем выбранный год и месяц из ячеек F2 и H2 на листе "Расчеты"
+  const selectedYear = calcSheet.getRange("F2").getValue().toString();
+  let selectedMonthText = calcSheet.getRange("H2").getValue().toString().toUpperCase();
+  if (!selectedYear || !selectedMonthText) {
+    Logger.log('Ошибка: Год (F2) или месяц (H2) не указаны на листе "Расчеты".');
+    return;
+  }
+
+  // Преобразуем текстовое название месяца в числовой формат
+  const selectedMonth = reverseMonthMapping[selectedMonthText];
+  if (!selectedMonth) {
+    Logger.log(`Ошибка: Неверное название месяца в ячейке H2: ${selectedMonthText}. Ожидается одно из: ${Object.values(monthMapping).join(", ")}`);
+    return;
+  }
+
+  // Выводим данные за выбранный месяц и год на лист "Расчеты" (AF3)
+  const calcOutput = [];
+  try {
+    if (yearlyMonthlyRatings[selectedYear] && yearlyMonthlyRatings[selectedYear][selectedMonth]) {
+      calcOutput.push([`${monthMapping[selectedMonth]} ${selectedYear}`, "", ""]); // Название месяца и года
+      calcOutput.push(["Имя горничной", "Байесова средняя", "Итоговый рейтинг"]); // Заголовки
+
+      // Очищаем диапазон AF3:AI23 перед выводом
+      calcSheet.getRange("AF3:AI23").clear();
+
+      const maidsInMonth = Object.keys(yearlyMonthlyRatings[selectedYear][selectedMonth]);
+      const namedMaids = maidsInMonth.filter(maid => maid !== "Н/а");
+      const naMaid = maidsInMonth.find(maid => maid === "Н/а");
+
+      const C = 25;
+      const m = 4.94;
+
+      // Сортируем горничных с именами по убыванию Байесовой средней
+      const sortedNamedMaids = namedMaids.sort((a, b) => {
+        const ratingsA = yearlyMonthlyRatings[selectedYear][selectedMonth][a];
+        const ratingsB = yearlyMonthlyRatings[selectedYear][selectedMonth][b];
+        const scoreSumA = (ratingsA[1] || 0) * 1 + (ratingsA[2] || 0) * 2 + (ratingsA[3] || 0) * 3 +
+                         (ratingsA[4] || 0) * 4 + (ratingsA[5] || 0) * 5;
+        const totalCountA = ratingsA.totalCount > 0 ? ratingsA.totalCount : 1;
+        const bayesianA = totalCountA > 0 ? (scoreSumA + C * m) / (totalCountA + C) : 0;
+
+        const scoreSumB = (ratingsB[1] || 0) * 1 + (ratingsB[2] || 0) * 2 + (ratingsB[3] || 0) * 3 +
+                         (ratingsB[4] || 0) * 4 + (ratingsB[5] || 0) * 5;
+        const totalCountB = ratingsB.totalCount > 0 ? ratingsB.totalCount : 1;
+        const bayesianB = totalCountB > 0 ? (scoreSumB + C * m) / (totalCountB + C) : 0;
+
+        return bayesianB - bayesianA;
+      });
+
+      // Добавляем данные по горничным с именами
+      sortedNamedMaids.forEach((maid, idx) => {
+        const ratings = yearlyMonthlyRatings[selectedYear][selectedMonth][maid];
+        const totalCount = ratings.totalCount;
+        const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                         (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+        const bayesianAverage = totalCount > 0
+          ? Math.round((scoreSum + C * m) / (totalCount + C) * 100) / 100
+          : 0;
+        const exactBayesian = totalCount > 0 ? (scoreSum + C * m) / (totalCount + C) : 0;
+        let rank = idx + 1;
+        for (let j = 0; j < idx; j++) {
+          const prevRatings = yearlyMonthlyRatings[selectedYear][selectedMonth][sortedNamedMaids[j]];
+          const prevTotalCount = prevRatings.totalCount > 0 ? prevRatings.totalCount : 1;
+          const prevScoreSum = (prevRatings[1] || 0) * 1 + (prevRatings[2] || 0) * 2 + (prevRatings[3] || 0) * 3 +
+                             (prevRatings[4] || 0) * 4 + (prevRatings[5] || 0) * 5;
+          const prevExactBayesian = prevTotalCount > 0 ? (prevScoreSum + C * m) / (prevTotalCount + C) : 0;
+          if (Math.abs(exactBayesian - prevExactBayesian) < 0.001) {
+            rank = j + 1;
+            break;
+          }
+        }
+        calcOutput.push([maid, bayesianAverage, rank]);
+      });
+
+      // Добавляем данные для "Н/а"
+      if (naMaid) {
+        const ratings = yearlyMonthlyRatings[selectedYear][selectedMonth][naMaid];
+        calcOutput.push([naMaid, 0, ""]);
+      }
+    } else {
+      calcOutput.push([`Нет данных за ${monthMapping[selectedMonth]} ${selectedYear}`, "", ""]);
+    }
+  } catch (error) {
+    Logger.log(`Произошла ошибка при выводе на лист "Расчеты": ${error.message}. Выводим накопленные данные.`);
+    Logger.log(`Стек вызовов: ${error.stack}`);
+  }
+
+  // Записываем данные на лист "Расчеты" начиная с AF3
+  const calcStartRow = 3;
+  const calcStartCol = 32; // AF = 32-й столбец
+  if (calcOutput.length > 0) {
+    calcSheet.getRange(calcStartRow, calcStartCol, calcOutput.length, 3).setValues(calcOutput);
+    Logger.log('Данные за месяц выведены на лист "Расчеты", начиная с AF3');
+  }
+
+  // Записываем данные на лист "Рейтинг горничных"
+  const startRow = 1;
+  const startColumn = 1;
+  if (output.length > 0) {
+    outputSheet.getRange(startRow, startColumn, output.length, 10).setValues(output);
+    Logger.log('Рейтинг горничных по месяцам записан в лист "Рейтинг горничных", начиная с A1');
+    Logger.log('Успех: Рейтинг горничных обновлен в листе "Рейтинг горничных"');
+  } else {
+    Logger.log('Нет данных для записи');
+    Logger.log('Ошибка: Нет данных для вывода в листе "Рейтинг горничных"');
+  }
+}
+
+
+// Функция для расчёта C и m для конкретного месяца
+function calculateCandMForMonth(year, month, yearlyMonthlyRatings) {
+  let totalScoreSum = 0;
+  let totalCountSum = 0;
+  let countWithScores = 0;
+
+  if (!yearlyMonthlyRatings[year] || !yearlyMonthlyRatings[year][month]) {
+    Logger.log(`Нет данных для ${year}-${month}, используются значения по умолчанию`);
+    return { C: 12, m: 4.95 };
+  }
+
+  const maidsInMonth = Object.keys(yearlyMonthlyRatings[year][month]);
+  maidsInMonth.forEach(maid => {
+    if (maid === "Н/а") return;
+    const ratings = yearlyMonthlyRatings[year][month][maid];
+    const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                     (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+    const totalCount = ratings.totalCount || 0;
+    if (totalCount > 0) {
+      totalScoreSum += scoreSum;
+      totalCountSum += totalCount;
+      countWithScores++;
+    }
+  });
+
+  const C = countWithScores > 0 ? Math.round(totalCountSum / countWithScores) : 12;
+  const m = totalCountSum > 0 ? Number((totalScoreSum / totalCountSum).toFixed(2)) : 4.95;
+  return { C, m };
+}
+
+// Функция для сортировки горничных и расчёта их рейтинга
+function sortMaidsAndCalculateRatings(year, month, maids, yearlyMonthlyRatings, C, m) {
+  const namedMaids = maids.filter(maid => maid !== "Н/а");
+  const naMaid = maids.find(maid => maid === "Н/а");
+
+  const sortedNamedMaids = namedMaids.sort((a, b) => {
+    const ratingsA = yearlyMonthlyRatings[year][month][a];
+    const ratingsB = yearlyMonthlyRatings[year][month][b];
+    const scoreSumA = (ratingsA[1] || 0) * 1 + (ratingsA[2] || 0) * 2 + (ratingsA[3] || 0) * 3 +
+                      (ratingsA[4] || 0) * 4 + (ratingsA[5] || 0) * 5;
+    const totalCountA = ratingsA.totalCount > 0 ? ratingsA.totalCount : 1;
+    const bayesianA = totalCountA > 0 ? (scoreSumA + C * m) / (totalCountA + C) : 0;
+
+    const scoreSumB = (ratingsB[1] || 0) * 1 + (ratingsB[2] || 0) * 2 + (ratingsB[3] || 0) * 3 +
+                      (ratingsB[4] || 0) * 4 + (ratingsB[5] || 0) * 5;
+    const totalCountB = ratingsB.totalCount > 0 ? ratingsB.totalCount : 1;
+    const bayesianB = totalCountB > 0 ? (scoreSumB + C * m) / (totalCountB + C) : 0;
+
+    return bayesianB - bayesianA;
+  });
+
+  const result = { sortedNamedMaids, naMaid };
+  return result;
+}
+
+// Основная функция
+function displayMaidRatingsByMonth1() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Получаем лист CleanControl для чтения данных
+  const dataSheet = ss.getSheetByName('CleanControl');
+  if (!dataSheet) {
+    Logger.log('Ошибка: Лист "CleanControl" не найден.');
+    return;
+  }
+
+  // Получаем или создаем лист "Рейтинг горничных" для вывода
+  let outputSheet = ss.getSheetByName('Рейтинг горничных1');
+  if (!outputSheet) {
+    outputSheet = ss.insertSheet('Рейтинг горничных1');
+  } else {
+    outputSheet.clear();
+  }
+
+  // Получаем или создаем лист "Расчеты" для вывода
+  let calcSheet = ss.getSheetByName('Расчеты');
+  if (!calcSheet) {
+    calcSheet = ss.insertSheet('Расчеты');
+  }
+
+  // Получаем данные из таблицы CleanControl
+  const data = dataSheet.getDataRange().getValues();
+  if (data.length < 2) {
+    Logger.log('Ошибка: Недостаточно данных в листе "CleanControl".');
+    return;
+  }
+
+  // Маппинг месяцев
+  const monthMapping = {
+    "01": "ЯНВАРЬ", "02": "ФЕВРАЛЬ", "03": "МАРТ", "04": "АПРЕЛЬ",
+    "05": "МАЙ", "06": "ИЮНЬ", "07": "ИЮЛЬ", "08": "АВГУСТ",
+    "09": "СЕНТЯБРЬ", "10": "ОКТЯБРЬ", "11": "НОЯБРЬ", "12": "ДЕКАБРЬ"
+  };
+  const months = Object.keys(monthMapping);
+
+  // Обратный маппинг для преобразования названия месяца в номер
+  const reverseMonthMapping = {};
+  for (const [key, value] of Object.entries(monthMapping)) {
+    reverseMonthMapping[value] = key;
+  }
+
+  // Инициализируем структуру для хранения рейтингов по месяцам и годам
+  const yearlyMonthlyRatings = {};
+
+  // Обрабатываем данные
+  let emptyRowCount = 0;
+  let firstEmptyRowIndex = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    const dateRaw = data[i][0];
+    const maid = data[i][2] && typeof data[i][2] === "string" && data[i][2].trim() ? data[i][2].trim() : "Н/а";
+    const score = data[i][3];
+
+    const rowData = data[i].slice(0, 7);
+    const isRowEmpty = rowData.every(cell => !cell || (typeof cell === "string" && cell.trim() === ""));
+
+    if (isRowEmpty) {
+      if (emptyRowCount === 0) {
+        firstEmptyRowIndex = i;
+      }
+      emptyRowCount++;
+      Logger.log(`Строка ${i + 1}: Пустая строка (диапазон A:G), счётчик пустых строк = ${emptyRowCount}`);
+      if (emptyRowCount >= 5) {
+        Logger.log(`Обнаружено 5 последовательных пустых строк. Остановка на строке ${firstEmptyRowIndex + 1}`);
+        break;
+      }
+      continue;
+    } else {
+      emptyRowCount = 0;
+      firstEmptyRowIndex = -1;
+    }
+
+    Logger.log(`Строка ${i + 1}: Дата=${dateRaw}, Горничная=${maid}, Оценка=${score} (Тип: ${typeof score})`);
+
+    let year, month;
+    if (dateRaw && typeof dateRaw === "string" && dateRaw.includes("T")) {
+      const date = new Date(dateRaw);
+      if (isNaN(date.getTime())) {
+        Logger.log(`Строка ${i + 1}: Пропущена - некорректная дата`);
+        continue;
+      }
+      year = date.getUTCFullYear().toString();
+      month = ("0" + (date.getUTCMonth() + 1)).slice(-2);
+    } else if (dateRaw instanceof Date) {
+      year = dateRaw.getFullYear().toString();
+      month = ("0" + (dateRaw.getMonth() + 1)).slice(-2);
+    } else {
+      Logger.log(`Строка ${i + 1}: Пропущена - некорректная дата`);
+      continue;
+    }
+
+    if (!year || !month) {
+      Logger.log(`Строка ${i + 1}: Пропущена - не удалось определить год или месяц`);
+      continue;
+    }
+
+    if (!yearlyMonthlyRatings[year]) {
+      yearlyMonthlyRatings[year] = {};
+      months.forEach(m => {
+        yearlyMonthlyRatings[year][m] = {};
+      });
+    }
+
+    if (!yearlyMonthlyRatings[year][month]) {
+      yearlyMonthlyRatings[year][month] = {};
+    }
+    if (!yearlyMonthlyRatings[year][month][maid]) {
+      yearlyMonthlyRatings[year][month][maid] = { "noScore": 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, totalCount: 0 };
+    }
+
+    if (!score || score.toString().trim() === "" || isNaN(score)) {
+      yearlyMonthlyRatings[year][month][maid]["noScore"]++;
+      Logger.log(`Строка ${i + 1}: Горничная ${maid} - учтено как "Без оценки"`);
+    } else {
+      const scoreNum = typeof score === 'string' ? parseInt(score, 10) : score;
+      if (scoreNum >= 1 && scoreNum <= 5 && Number.isInteger(scoreNum)) {
+        yearlyMonthlyRatings[year][month][maid][scoreNum]++;
+        yearlyMonthlyRatings[year][month][maid].totalCount++;
+        Logger.log(`Строка ${i + 1}: Горничная ${maid} - оценка ${scoreNum} учтена, totalCount=${yearlyMonthlyRatings[year][month][maid].totalCount}`);
+      } else {
+        yearlyMonthlyRatings[year][month][maid]["noScore"]++;
+        Logger.log(`Строка ${i + 1}: Горничная ${maid} - оценка ${score} невалидна, учтено как "Без оценки"`);
+      }
+    }
+  }
+
+  // Формируем данные для вывода на лист "Рейтинг горничных"
+  const output = [];
+  try {
+    const years = Object.keys(yearlyMonthlyRatings).sort();
+    years.forEach(year => {
+      if (!/^\d{4}$/.test(year)) {
+        Logger.log(`Пропускаем ключ ${year}, так как это не год`);
+        return;
+      }
+
+      months.forEach((month, index) => {
+        if (!yearlyMonthlyRatings[year] || !yearlyMonthlyRatings[year][month]) {
+          Logger.log(`Пропускаем месяц ${month} для года ${year}, так как данные отсутствуют`);
+          return;
+        }
+
+        const maidsInMonth = Object.keys(yearlyMonthlyRatings[year][month]);
+        if (maidsInMonth.length === 0) return;
+
+        output.push([`${monthMapping[month]} ${year}`, "", "", "", "", "", "", "", "", ""]);
+        Logger.log(`Добавлено название месяца: ${monthMapping[month]} ${year}`);
+
+        output.push(["Имя горничной", "Без оценки", "1", "2", "3", "4", "5", "Кол-во оцененных уборок", "Байесова средняя", "Итоговый рейтинг"]);
+        Logger.log("Добавлены заголовки: Имя горничной, Без оценки, 1, 2, 3, 4, 5, Кол-во оцененных уборок, Байесова средняя, Итоговый рейтинг");
+
+        // Вычисляем C и m для текущего месяца
+        const { C, m } = calculateCandMForMonth(year, month, yearlyMonthlyRatings);
+        Logger.log(`Значения для ${monthMapping[month]} ${year}: C=${C}, m=${m}`);
+
+        const { sortedNamedMaids, naMaid } = sortMaidsAndCalculateRatings(year, month, maidsInMonth, yearlyMonthlyRatings, C, m);
+
+        sortedNamedMaids.forEach((maid, idx) => {
+          const ratings = yearlyMonthlyRatings[year][month][maid];
+          const totalCount = ratings.totalCount;
+          const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                           (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+          const bayesianAverage = totalCount > 0
+            ? Math.round((scoreSum + C * m) / (totalCount + C) * 100) / 100
+            : 0;
+          const exactBayesian = totalCount > 0 ? (scoreSum + C * m) / (totalCount + C) : 0;
+
+          let rank = idx + 1;
+          for (let j = 0; j < idx; j++) {
+            const prevRatings = yearlyMonthlyRatings[year][month][sortedNamedMaids[j]];
+            const prevTotalCount = prevRatings.totalCount > 0 ? prevRatings.totalCount : 1;
+            const prevScoreSum = (prevRatings[1] || 0) * 1 + (prevRatings[2] || 0) * 2 + (prevRatings[3] || 0) * 3 +
+                               (prevRatings[4] || 0) * 4 + (prevRatings[5] || 0) * 5;
+            const prevExactBayesian = prevTotalCount > 0 ? (prevScoreSum + C * m) / (prevTotalCount + C) : 0;
+            if (Math.abs(exactBayesian - prevExactBayesian) < 0.001) {
+              rank = j + 1;
+              break;
+            }
+          }
+
+          output.push([
+            maid,
+            ratings.noScore || 0,
+            ratings[1] || 0,
+            ratings[2] || 0,
+            ratings[3] || 0,
+            ratings[4] || 0,
+            ratings[5] || 0,
+            totalCount,
+            bayesianAverage,
+            rank
+          ]);
+          Logger.log(
+            "Добавлена строка для " + maid + ": " +
+            JSON.stringify([ratings.noScore, ratings[1], ratings[2], ratings[3], ratings[4], ratings[5], totalCount, bayesianAverage, rank])
+          );
+        });
+
+        if (naMaid) {
+          const ratings = yearlyMonthlyRatings[year][month][naMaid];
+          output.push([
+            naMaid,
+            ratings.noScore || 0,
+            ratings[1] || 0,
+            ratings[2] || 0,
+            ratings[3] || 0,
+            ratings[4] || 0,
+            ratings[5] || 0,
+            0,
+            0,
+            ""
+          ]);
+          Logger.log(
+            "Добавлена строка для " + naMaid + ": " +
+            JSON.stringify([ratings.noScore, ratings[1], ratings[2], ratings[3], ratings[4], ratings[5], 0, 0, ""])
+          );
+        }
+
+        if (index < months.length - 1 || year !== years[years.length - 1]) {
+          output.push(["", "", "", "", "", "", "", "", "", ""]);
+          Logger.log("Добавлена пустая строка между месяцами");
+        }
+      });
+    });
+  } catch (error) {
+    Logger.log(`Произошла ошибка при формировании данных: ${error.message}. Выводим накопленные данные на лист.`);
+    Logger.log(`Стек вызовов: ${error.stack}`);
+  }
+
+  // Получаем выбранный год и месяц из ячеек F2 и H2 на листе "Расчеты"
+  const selectedYear = calcSheet.getRange("F2").getValue().toString();
+  let selectedMonthText = calcSheet.getRange("H2").getValue().toString().toUpperCase();
+  if (!selectedYear || !selectedMonthText) {
+    Logger.log('Ошибка: Год (F2) или месяц (H2) не указаны на листе "Расчеты".');
+    return;
+  }
+
+  const selectedMonth = reverseMonthMapping[selectedMonthText];
+  if (!selectedMonth) {
+    Logger.log(`Ошибка: Неверное название месяца в ячейке H2: ${selectedMonthText}. Ожидается одно из: ${Object.values(monthMapping).join(", ")}`);
+    return;
+  }
+
+  // Выводим данные за выбранный месяц и год на лист "Расчеты" (AF3)
+  const calcOutput = [];
+  try {
+    if (yearlyMonthlyRatings[selectedYear] && yearlyMonthlyRatings[selectedYear][selectedMonth]) {
+      calcOutput.push([`${monthMapping[selectedMonth]} ${selectedYear}`, "", ""]);
+      calcOutput.push(["Имя горничной", "Байесова средняя", "Итоговый рейтинг"]);
+
+      calcSheet.getRange("AF3:AI23").clear();
+
+      const maidsInMonth = Object.keys(yearlyMonthlyRatings[selectedYear][selectedMonth]);
+
+      const { C, m } = calculateCandMForMonth(selectedYear, selectedMonth, yearlyMonthlyRatings);
+      Logger.log(`Значения для ${monthMapping[selectedMonth]} ${selectedYear} (лист "Расчеты"): C=${C}, m=${m}`);
+
+      const { sortedNamedMaids, naMaid } = sortMaidsAndCalculateRatings(selectedYear, selectedMonth, maidsInMonth, yearlyMonthlyRatings, C, m);
+
+      sortedNamedMaids.forEach((maid, idx) => {
+        const ratings = yearlyMonthlyRatings[selectedYear][selectedMonth][maid];
+        const totalCount = ratings.totalCount;
+        const scoreSum = (ratings[1] || 0) * 1 + (ratings[2] || 0) * 2 + (ratings[3] || 0) * 3 +
+                         (ratings[4] || 0) * 4 + (ratings[5] || 0) * 5;
+        const bayesianAverage = totalCount > 0
+          ? Math.round((scoreSum + C * m) / (totalCount + C) * 100) / 100
+          : 0;
+        const exactBayesian = totalCount > 0 ? (scoreSum + C * m) / (totalCount + C) : 0;
+        let rank = idx + 1;
+        for (let j = 0; j < idx; j++) {
+          const prevRatings = yearlyMonthlyRatings[selectedYear][selectedMonth][sortedNamedMaids[j]];
+          const prevTotalCount = prevRatings.totalCount > 0 ? prevRatings.totalCount : 1;
+          const prevScoreSum = (prevRatings[1] || 0) * 1 + (prevRatings[2] || 0) * 2 + (prevRatings[3] || 0) * 3 +
+                             (prevRatings[4] || 0) * 4 + (prevRatings[5] || 0) * 5;
+          const prevExactBayesian = prevTotalCount > 0 ? (prevScoreSum + C * m) / (prevTotalCount + C) : 0;
+          if (Math.abs(exactBayesian - prevExactBayesian) < 0.001) {
+            rank = j + 1;
+            break;
+          }
+        }
+        calcOutput.push([maid, bayesianAverage, rank]);
+      });
+
+      if (naMaid) {
+        calcOutput.push([naMaid, 0, ""]);
+      }
+    } else {
+      calcOutput.push([`Нет данных за ${monthMapping[selectedMonth]} ${selectedYear}`, "", ""]);
+    }
+  } catch (error) {
+    Logger.log(`Произошла ошибка при выводе на лист "Расчеты": ${error.message}. Выводим накопленные данные.`);
+    Logger.log(`Стек вызовов: ${error.stack}`);
+  }
+
+  const calcStartRow = 3;
+  const calcStartCol = 32;
+  if (calcOutput.length > 0) {
+    calcSheet.getRange(calcStartRow, calcStartCol, calcOutput.length, 3).setValues(calcOutput);
+    Logger.log('Данные за месяц выведены на лист "Расчеты", начиная с AF3');
+  }
+
+  const startRow = 1;
+  const startColumn = 1;
+  if (output.length > 0) {
+    outputSheet.getRange(startRow, startColumn, output.length, 10).setValues(output);
+    Logger.log('Рейтинг горничных по месяцам записан в лист "Рейтинг горничных", начиная с A1');
+    Logger.log('Успех: Рейтинг горничных обновлен в листе "Рейтинг горничных"');
+  } else {
+    Logger.log('Нет данных для записи');
+    Logger.log('Ошибка: Нет данных для вывода в листе "Рейтинг горничных"');
+  }
+}
