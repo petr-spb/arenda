@@ -1,3 +1,6 @@
+// Воронка
+
+
 // function updateDataFromYandexFunnel() {
 //   var ss = SpreadsheetApp.getActiveSpreadsheet();
 //   var calculationSheet = ss.getSheetByName('Расчеты'); // Лист с выбранным месяцем и годом
